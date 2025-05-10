@@ -22,7 +22,7 @@ interface MenuItemProps {
 }
 
 const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
-  const { collapsed } = useSidebar();
+  const sidebar = useSidebar();
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
@@ -35,7 +35,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
           }
         >
           <Icon className="h-5 w-5" />
-          {!collapsed && <span>{label}</span>}
+          {!sidebar.collapsed && <span>{label}</span>}
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -43,16 +43,16 @@ const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
 };
 
 const AppSidebar: React.FC = () => {
-  const { collapsed } = useSidebar();
+  const sidebar = useSidebar();
   const { user } = useAuth();
   const isManager = user?.role === 'Manager';
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-56"} collapsible>
+    <Sidebar className={sidebar.collapsed ? "w-14" : "w-56"}>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70">
-            {!collapsed && 'Navigation'}
+            {!sidebar.collapsed && 'Navigation'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

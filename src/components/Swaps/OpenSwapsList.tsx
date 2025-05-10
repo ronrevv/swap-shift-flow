@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SwapRequest } from '@/types';
@@ -8,6 +7,7 @@ import SwapCard from './SwapCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
 import { parseISO } from 'date-fns';
+import { ArrowLeftRight } from 'lucide-react';
 
 // Mock swap requests data
 const generateMockSwapRequests = (): SwapRequest[] => {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Shift } from '@/types';
@@ -7,6 +6,7 @@ import ShiftCard from './ShiftCard';
 import SwapRequestForm from '../Swaps/SwapRequestForm';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { parseISO, format, startOfWeek, addDays, isWithinInterval } from 'date-fns';
+import { Calendar } from 'lucide-react';
 
 // Mock shift data
 const generateMockShifts = (userId: string): Shift[] => {
