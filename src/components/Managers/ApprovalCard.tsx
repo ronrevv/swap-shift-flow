@@ -1,18 +1,30 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SwapRequest } from '@/types';
 import { Check, X, Calendar, ArrowLeftRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ApprovalCardProps {
   swap: SwapRequest;
-  onApprove: () => void;
-  onReject: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  refetch?: () => void;
 }
 
-const ApprovalCard: React.FC<ApprovalCardProps> = ({ swap, onApprove, onReject }) => {
+const ApprovalCard: React.FC<ApprovalCardProps> = ({ 
+  swap, 
+  onApprove, 
+  onReject,
+  refetch 
+}) => {
+  const { user } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   // Format the date
   const formatDate = (dateString: string) => {
     try {
@@ -20,6 +32,67 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({ swap, onApprove, onReject }
       return format(date, 'EEE, MMM d, yyyy');
     } catch (error) {
       return dateString;
+    }
+  };
+  
+  const handleApprove = async () => {
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('swap_requests')
+        .update({
+          status: 'Approved',
+          manager_id: user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', swap.id);
+      
+      if (error) {
+        console.error('Error approving swap request:', error);
+        toast.error('Failed to approve swap request');
+        return;
+      }
+      
+      toast.success('Swap request approved successfully');
+      if (refetch) refetch();
+      if (onApprove) onApprove();
+    } catch (error) {
+      console.error('Error approving swap request:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleReject = async () => {
+    setIsProcessing(true);
+    try {
+      const reason = prompt('Please provide a reason for rejection (optional):');
+      
+      const { error } = await supabase
+        .from('swap_requests')
+        .update({
+          status: 'Rejected',
+          manager_id: user?.id,
+          rejected_at: new Date().toISOString(),
+          rejection_reason: reason || null
+        })
+        .eq('id', swap.id);
+      
+      if (error) {
+        console.error('Error rejecting swap request:', error);
+        toast.error('Failed to reject swap request');
+        return;
+      }
+      
+      toast.success('Swap request rejected');
+      if (refetch) refetch();
+      if (onReject) onReject();
+    } catch (error) {
+      console.error('Error rejecting swap request:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
   
@@ -76,18 +149,20 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({ swap, onApprove, onReject }
         <Button 
           variant="outline" 
           className="text-green-600 border-green-200 hover:bg-green-50"
-          onClick={onApprove}
+          onClick={handleApprove}
+          disabled={isProcessing}
         >
           <Check className="h-4 w-4 mr-1" />
-          Approve
+          {isProcessing ? 'Processing...' : 'Approve'}
         </Button>
         <Button 
           variant="outline" 
           className="text-red-600 border-red-200 hover:bg-red-50"
-          onClick={onReject}
+          onClick={handleReject}
+          disabled={isProcessing}
         >
           <X className="h-4 w-4 mr-1" />
-          Reject
+          {isProcessing ? 'Processing...' : 'Reject'}
         </Button>
       </CardFooter>
     </Card>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Shift } from '@/types';
@@ -5,65 +6,59 @@ import { Button } from '@/components/ui/button';
 import ShiftCard from './ShiftCard';
 import SwapRequestForm from '../Swaps/SwapRequestForm';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { parseISO, format, startOfWeek, addDays, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfWeek, addDays, isWithinInterval } from 'date-fns';
 import { Calendar } from 'lucide-react';
-
-// Mock shift data
-const generateMockShifts = (userId: string): Shift[] => {
-  const shifts: Shift[] = [];
-  const today = new Date();
-  const startDay = startOfWeek(today);
-  
-  // Names for different roles
-  const roles = ['Cashier', 'Stocker', 'Customer Service', 'Manager', 'Warehouse'];
-  
-  // Generate shifts for the next 2 weeks
-  for (let i = 0; i < 14; i++) {
-    // Skip some days randomly to make it more realistic
-    if (Math.random() > 0.6) continue;
-    
-    const shiftDate = addDays(startDay, i);
-    const shiftDateStr = format(shiftDate, 'yyyy-MM-dd');
-    
-    const startHour = 8 + Math.floor(Math.random() * 4); // Start between 8 AM and 11 AM
-    const startTime = `${startHour}:00 AM`;
-    const endHour = startHour + 8; // 8-hour shifts
-    const endTime = endHour > 12 ? `${endHour - 12}:00 PM` : `${endHour}:00 AM`;
-    
-    const role = roles[Math.floor(Math.random() * roles.length)];
-    
-    shifts.push({
-      id: `shift-${i}`,
-      employeeId: userId,
-      employeeName: '', // Will be filled in later
-      date: shiftDateStr,
-      startTime,
-      endTime,
-      role
-    });
-  }
-  
-  return shifts.sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-};
+import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const ShiftList: React.FC = () => {
   const { user } = useAuth();
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   
-  // Generate mock shifts for the logged-in user
-  const shifts = React.useMemo(() => {
-    if (!user) return [];
-    const generatedShifts = generateMockShifts(user.id);
-    return generatedShifts.map(shift => ({
-      ...shift,
-      employeeName: user.name
-    }));
-  }, [user]);
+  // Fetch shifts from Supabase
+  const { data: shifts, isLoading, error, refetch } = useQuery({
+    queryKey: ['shifts', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('shifts')
+        .select(`
+          id,
+          employee_id,
+          date,
+          start_time,
+          end_time,
+          role,
+          profiles:employee_id (name)
+        `)
+        .eq('employee_id', user.id)
+        .order('date', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching shifts:', error);
+        toast.error('Failed to load shifts');
+        throw error;
+      }
+      
+      return data.map(shift => ({
+        id: shift.id,
+        employeeId: shift.employee_id,
+        employeeName: shift.profiles?.name || user.name,
+        date: shift.date,
+        startTime: format(parseISO(`1970-01-01T${shift.start_time}`), 'h:mm a'),
+        endTime: format(parseISO(`1970-01-01T${shift.end_time}`), 'h:mm a'),
+        role: shift.role
+      }));
+    },
+    enabled: !!user
+  });
   
   const today = new Date();
   
-  const filteredShifts = shifts.filter(shift => {
+  const filteredShifts = shifts?.filter(shift => {
     const shiftDate = parseISO(shift.date);
     
     switch (filter) {
@@ -74,11 +69,33 @@ const ShiftList: React.FC = () => {
       default:
         return true;
     }
-  });
+  }) || [];
   
   const handleRequestSwap = (shift: Shift) => {
     setSelectedShift(shift);
   };
+  
+  const handleSwapRequestSuccess = () => {
+    setSelectedShift(null);
+    refetch();
+    toast.success('Swap request submitted successfully!');
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="text-center p-4 bg-red-50 text-red-500 rounded-md">
+        There was an error loading your shifts. Please try again.
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -137,7 +154,8 @@ const ShiftList: React.FC = () => {
           {selectedShift && (
             <SwapRequestForm 
               shift={selectedShift} 
-              onClose={() => setSelectedShift(null)} 
+              onClose={() => setSelectedShift(null)}
+              onSuccess={handleSwapRequestSuccess}
             />
           )}
         </DialogContent>

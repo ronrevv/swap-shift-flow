@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeftRight, Check, X, Calendar } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SwapCardProps {
   swap: SwapRequest;
@@ -14,6 +15,7 @@ interface SwapCardProps {
   onApprove?: () => void;
   onReject?: () => void;
   isManagerView?: boolean;
+  refetch?: () => void;
 }
 
 const SwapCard: React.FC<SwapCardProps> = ({ 
@@ -21,7 +23,8 @@ const SwapCard: React.FC<SwapCardProps> = ({
   onVolunteer, 
   onApprove, 
   onReject, 
-  isManagerView = false 
+  isManagerView = false,
+  refetch
 }) => {
   const { user } = useAuth();
   const isRequester = user?.id === swap.requesterId;
@@ -57,6 +60,71 @@ const SwapCard: React.FC<SwapCardProps> = ({
       return;
     }
     if (onVolunteer) onVolunteer();
+  };
+  
+  const handleApprove = async () => {
+    if (!isManager) {
+      toast.error("Only managers can approve swap requests");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('swap_requests')
+        .update({
+          status: 'Approved',
+          manager_id: user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', swap.id);
+        
+      if (error) {
+        console.error('Error approving swap request:', error);
+        toast.error('Failed to approve swap request');
+        return;
+      }
+      
+      toast.success('Swap request approved successfully');
+      if (refetch) refetch();
+      if (onApprove) onApprove();
+    } catch (error) {
+      console.error('Error approving swap request:', error);
+      toast.error('Something went wrong. Please try again.');
+    }
+  };
+  
+  const handleReject = async () => {
+    if (!isManager) {
+      toast.error("Only managers can reject swap requests");
+      return;
+    }
+    
+    try {
+      const reason = prompt('Please provide a reason for rejection (optional):');
+      
+      const { error } = await supabase
+        .from('swap_requests')
+        .update({
+          status: 'Rejected',
+          manager_id: user?.id,
+          rejected_at: new Date().toISOString(),
+          rejection_reason: reason || null
+        })
+        .eq('id', swap.id);
+        
+      if (error) {
+        console.error('Error rejecting swap request:', error);
+        toast.error('Failed to reject swap request');
+        return;
+      }
+      
+      toast.success('Swap request rejected');
+      if (refetch) refetch();
+      if (onReject) onReject();
+    } catch (error) {
+      console.error('Error rejecting swap request:', error);
+      toast.error('Something went wrong. Please try again.');
+    }
   };
   
   const getStatusBadge = () => {
@@ -143,7 +211,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
           <Button 
             variant="outline" 
             className="w-full text-approval hover:bg-approval hover:text-approval-foreground flex items-center gap-1"
-            onClick={onApprove}
+            onClick={handleApprove}
           >
             <Check className="h-4 w-4" />
             <span>Approve</span>
@@ -151,7 +219,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
           <Button 
             variant="outline" 
             className="w-full text-rejection hover:bg-rejection hover:text-rejection-foreground flex items-center gap-1"
-            onClick={onReject}
+            onClick={handleReject}
           >
             <X className="h-4 w-4" />
             <span>Reject</span>

@@ -9,16 +9,212 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string
+          entity_type: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
+      shifts: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string
+          end_time: string
+          id: string
+          role: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id: string
+          end_time: string
+          id?: string
+          role: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string
+          end_time?: string
+          id?: string
+          role?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swap_requests: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          id: string
+          manager_id: string | null
+          note: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          requester_id: string
+          shift_id: string
+          status: Database["public"]["Enums"]["swap_status"]
+          volunteer_id: string | null
+          volunteer_shift_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          manager_id?: string | null
+          note?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requester_id: string
+          shift_id: string
+          status?: Database["public"]["Enums"]["swap_status"]
+          volunteer_id?: string | null
+          volunteer_shift_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          manager_id?: string | null
+          note?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requester_id?: string
+          shift_id?: string
+          status?: Database["public"]["Enums"]["swap_status"]
+          volunteer_id?: string | null
+          volunteer_shift_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swap_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_volunteer_id_fkey"
+            columns: ["volunteer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_volunteer_shift_id_fkey"
+            columns: ["volunteer_shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_manager: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      log_activity: {
+        Args: {
+          entity_type: string
+          entity_id: string
+          action: string
+          details?: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      swap_status: "Open" | "Volunteered" | "Pending" | "Approved" | "Rejected"
+      user_role: "Staff" | "Manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +329,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      swap_status: ["Open", "Volunteered", "Pending", "Approved", "Rejected"],
+      user_role: ["Staff", "Manager"],
+    },
   },
 } as const

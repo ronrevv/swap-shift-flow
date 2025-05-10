@@ -1,5 +1,4 @@
-
-export type UserRole = "Staff" | "Manager";
+export type UserRole = 'Staff' | 'Manager';
 
 export interface User {
   id: string;
@@ -18,7 +17,7 @@ export interface Shift {
   role: string;
 }
 
-export type SwapStatus = "Open" | "Volunteered" | "Pending" | "Approved" | "Rejected";
+export type SwapStatus = 'Open' | 'Volunteered' | 'Pending' | 'Approved' | 'Rejected';
 
 export interface SwapRequest {
   id: string;
@@ -38,16 +37,25 @@ export interface SwapRequest {
   volunteerShiftStartTime?: string;
   volunteerShiftEndTime?: string;
   managerId?: string;
-  managerName?: string;
-  approvedAt?: string;
-  rejectedAt?: string;
   reason?: string;
 }
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
   logout: () => void;
+  register?: (email: string, password: string, name: string) => Promise<any>;
   isAuthenticated: boolean;
   isLoading: boolean;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId?: string;
+  userName?: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details?: any;
+  createdAt: string;
 }

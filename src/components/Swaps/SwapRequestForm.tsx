@@ -7,13 +7,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SwapRequestFormProps {
   shift: Shift;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose }) => {
+const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose, onSuccess }) => {
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
@@ -28,29 +30,38 @@ const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose }) => 
     
     setIsSubmitting(true);
     
-    // Mock API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Create mock swap request
-    const newSwapRequest: SwapRequest = {
-      id: `swap-${Date.now()}`,
-      shiftId: shift.id,
-      requesterId: user.id,
-      requesterName: user.name,
-      note,
-      date: shift.date,
-      startTime: shift.startTime,
-      endTime: shift.endTime,
-      status: 'Open',
-      createdAt: new Date().toISOString(),
-    };
-    
-    // In a real app, we would send this to an API
-    console.log('Created swap request:', newSwapRequest);
-    
-    toast.success('Swap request submitted successfully!');
-    setIsSubmitting(false);
-    onClose();
+    try {
+      // Create swap request in Supabase
+      const { data, error } = await supabase
+        .from('swap_requests')
+        .insert([
+          {
+            shift_id: shift.id,
+            requester_id: user.id,
+            note,
+            status: 'Open'
+          }
+        ])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating swap request:', error);
+        toast.error('Failed to create swap request');
+        return;
+      }
+      
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Error submitting swap request:', error);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (
