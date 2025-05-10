@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,30 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				shift: {
+					DEFAULT: '#0ea5e9',  // Bright blue for shifts
+					hover: '#0284c7',
+					active: '#0369a1',
+					foreground: '#ffffff'
+				},
+				swap: {
+					DEFAULT: '#8b5cf6',  // Purple for swap requests
+					hover: '#7c3aed',
+					active: '#6d28d9',
+					foreground: '#ffffff'  
+				},
+				approval: {
+					DEFAULT: '#10b981',  // Green for approvals
+					hover: '#059669',
+					active: '#047857',
+					foreground: '#ffffff'
+				},
+				rejection: {
+					DEFAULT: '#ef4444',  // Red for rejections
+					hover: '#dc2626',
+					active: '#b91c1c',
+					foreground: '#ffffff'
 				}
 			},
 			borderRadius: {
@@ -84,11 +109,22 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					'100%': {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out'
 			}
 		}
 	},
