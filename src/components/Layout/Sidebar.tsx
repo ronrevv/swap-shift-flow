@@ -23,6 +23,8 @@ interface MenuItemProps {
 
 const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
   const sidebar = useSidebar();
+  const isCollapsed = sidebar.state === 'collapsed';
+  
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
@@ -35,7 +37,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
           }
         >
           <Icon className="h-5 w-5" />
-          {!sidebar.collapsed && <span>{label}</span>}
+          {!isCollapsed && <span>{label}</span>}
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -44,15 +46,16 @@ const MenuItem: React.FC<MenuItemProps> = ({ to, icon: Icon, label }) => {
 
 const AppSidebar: React.FC = () => {
   const sidebar = useSidebar();
+  const isCollapsed = sidebar.state === 'collapsed';
   const { user } = useAuth();
   const isManager = user?.role === 'Manager';
 
   return (
-    <Sidebar className={sidebar.collapsed ? "w-14" : "w-56"}>
+    <Sidebar className={isCollapsed ? "w-14" : "w-56"}>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70">
-            {!sidebar.collapsed && 'Navigation'}
+            {!isCollapsed && 'Navigation'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
