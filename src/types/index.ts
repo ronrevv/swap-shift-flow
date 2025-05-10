@@ -1,3 +1,4 @@
+
 export type UserRole = 'Staff' | 'Manager';
 
 export interface User {
@@ -37,6 +38,9 @@ export interface SwapRequest {
   volunteerShiftStartTime?: string;
   volunteerShiftEndTime?: string;
   managerId?: string;
+  managerName?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
   reason?: string;
 }
 
