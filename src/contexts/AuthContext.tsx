@@ -16,11 +16,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize authentication on load
   useEffect(() => {
     console.log("AuthProvider: Initializing");
+    let mounted = true;
     
     // Set up auth state listener FIRST (to prevent missing auth events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log("Auth state change event:", event, "Session:", currentSession ? "exists" : "none");
+        
+        if (!mounted) return;
+        
         setSession(currentSession);
         
         if (currentSession?.user) {
@@ -29,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await fetchUserProfile(currentSession.user.id);
           } catch (error) {
             console.error("Error in auth state change handler:", error);
+            setIsLoading(false);
           }
         } else {
           console.log("Auth state change: No user found");
@@ -43,6 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         console.log("Checking for existing session:", currentSession ? "Found" : "None");
+        
+        if (!mounted) return;
+        
         setSession(currentSession);
         
         if (currentSession?.user) {
@@ -56,13 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error("Error checking existing session:", error);
         setIsLoading(false);
       } finally {
-        setInitialLoadComplete(true);
+        if (mounted) {
+          setInitialLoadComplete(true);
+        }
       }
     };
 
     checkExistingSession();
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -79,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error("Error fetching user profile:", error);
-        // Instead of failing, create a profile from session data
+        // Create a profile from session data if profile doesn't exist
         if (session?.user) {
           const metadata = session.user.user_metadata;
           const email = session.user.email || '';
@@ -95,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: userRole
           };
           
-          console.log("Created user from session:", userProfile);
+          console.log("Created user profile from session:", userProfile);
           setUser(userProfile);
           
           // Try to create the profile in the database
@@ -145,8 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if ((email === 'manager@shiftswap.com' || email === 'staff@shiftswap.com') && password === 'password') {
         try {
           // Seed demo data first to ensure demo accounts exist
-          await supabase.functions.invoke('seed-demo-data');
-          console.log("Seeded demo data before login attempt");
+          const seedResult = await supabase.functions.invoke('seed-demo-data');
+          console.log("Seeded demo data before login attempt", seedResult);
         } catch (seedError) {
           console.log("Note: Demo data seeding failed but continuing with login", seedError);
         }
@@ -157,10 +168,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("Login error:", error);
         toast.error(error.message || "Failed to sign in. Please check your credentials.");
+        setIsLoading(false);
         throw error;
       }
 
       console.log("Login successful, data:", data);
+      
+      // Fetch user profile immediately after successful login
+      if (data.user) {
+        await fetchUserProfile(data.user.id);
+      }
+      
       toast.success(`Welcome back!`);
       return data;
     } catch (error: any) {
