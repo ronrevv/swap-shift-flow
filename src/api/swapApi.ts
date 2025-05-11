@@ -33,7 +33,12 @@ export async function getOpenSwapRequests() {
       .order('created_at', { ascending: false });
     
     if (error) {
+      console.error("Error fetching open swap requests:", error);
       throw error;
+    }
+    
+    if (!data) {
+      return [];
     }
     
     // Format the data to match the SwapRequest type
@@ -208,6 +213,10 @@ export async function getPendingSwapRequests() {
     if (error) {
       console.error('Error fetching pending swap requests:', error);
       throw error;
+    }
+    
+    if (!data) {
+      return [];
     }
     
     console.log('Pending swap requests data:', data);

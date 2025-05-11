@@ -119,6 +119,8 @@ export type Database = {
           id: string
           manager_id: string | null
           note: string | null
+          preferred_time: string | null
+          preferred_volunteer_name: string | null
           rejected_at: string | null
           rejection_reason: string | null
           requester_id: string
@@ -133,6 +135,8 @@ export type Database = {
           id?: string
           manager_id?: string | null
           note?: string | null
+          preferred_time?: string | null
+          preferred_volunteer_name?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
           requester_id: string
@@ -147,6 +151,8 @@ export type Database = {
           id?: string
           manager_id?: string | null
           note?: string | null
+          preferred_time?: string | null
+          preferred_volunteer_name?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
           requester_id?: string
