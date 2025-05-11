@@ -1,7 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { SwapRequest } from '@/types';
 import { format, parseISO } from 'date-fns';
+import { createLogEntry } from '@/api/logsApi';
 
 // Get all open swap requests
 export async function getOpenSwapRequests() {
