@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginForm from '@/components/Auth/LoginForm';
 import { seedDemoData } from '@/utils/seedData';
@@ -10,14 +10,29 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const Index = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedError, setSeedError] = useState('');
+  const navigate = useNavigate();
   
   useEffect(() => {
     // Update document title
     document.title = "ShiftSwap - Login";
-  }, []);
+    
+    // If authenticated, redirect to dashboard
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+  
+  // Early return during authentication check to prevent flash of login screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   
   // If logged in, redirect to dashboard
   if (isAuthenticated) {

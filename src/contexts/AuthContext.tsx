@@ -14,14 +14,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize authentication on load
   useEffect(() => {
-    // Set up auth state listener
+    console.log("AuthProvider: Initializing");
+    
+    // Set up auth state listener FIRST (to prevent missing auth events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log("Auth state change event:", event);
         setSession(currentSession);
+        
+        // Use setTimeout to prevent potential deadlocks
         if (currentSession?.user) {
-          // Get additional user data from profiles when authenticated
-          fetchUserProfile(currentSession.user.id);
+          setTimeout(() => {
+            fetchUserProfile(currentSession.user.id);
+          }, 0);
         } else {
           setUser(null);
           setIsLoading(false);
@@ -29,10 +34,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Check for existing session
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       console.log("Checking for existing session:", currentSession ? "Found" : "None");
       setSession(currentSession);
+      
       if (currentSession?.user) {
         fetchUserProfile(currentSession.user.id);
       } else {
