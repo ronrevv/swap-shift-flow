@@ -79,11 +79,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error("Error fetching user profile:", error);
-        setIsLoading(false);
-        return;
-      }
-
-      if (data) {
+        // Instead of failing, create a profile from session data
+        if (session?.user) {
+          const metadata = session.user.user_metadata;
+          const email = session.user.email || '';
+          
+          // Create user from auth data
+          const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+          const userName = metadata?.name || email.split('@')[0] || 'User';
+          
+          const userProfile: User = {
+            id: userId,
+            name: userName,
+            email: email,
+            role: userRole
+          };
+          
+          console.log("Created user from session:", userProfile);
+          setUser(userProfile);
+          
+          // Try to create the profile in the database
+          try {
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                name: userName,
+                email: email,
+                role: userRole
+              });
+              
+            if (insertError) {
+              console.error("Failed to create profile:", insertError);
+            } else {
+              console.log("Created new profile in database");
+            }
+          } catch (insertErr) {
+            console.error("Error creating profile:", insertErr);
+          }
+        }
+      } else if (data) {
         console.log("Profile data retrieved:", data);
         setUser({
           id: data.id,

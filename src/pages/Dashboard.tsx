@@ -14,12 +14,20 @@ const Dashboard = () => {
   useEffect(() => {
     // Update document title
     document.title = "ShiftSwap - Dashboard";
-  }, []);
+    
+    console.log("Dashboard: Rendering with auth state:", { 
+      isAuthenticated, 
+      isLoading, 
+      initialLoadComplete,
+      user: user ? `${user.name} (${user.role})` : 'None'
+    });
+  }, [isAuthenticated, isLoading, initialLoadComplete, user]);
   
   if (isLoading || !initialLoadComplete) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
       </div>
     );
   }
