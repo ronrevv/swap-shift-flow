@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { volunteerForSwap } from '@/api/swapApi';
 
 interface VolunteerButtonProps {
   swapId: string;
@@ -17,6 +17,12 @@ const VolunteerButton: React.FC<VolunteerButtonProps> = ({ swapId, onSuccess }) 
   const handleVolunteer = async () => {
     if (!user) {
       toast.error('You must be logged in to volunteer for a shift');
+      return;
+    }
+    
+    // Prevent managers from volunteering for shifts
+    if (user.role === 'Manager') {
+      toast.error('Managers cannot volunteer for shift swaps');
       return;
     }
     
@@ -38,23 +44,16 @@ const VolunteerButton: React.FC<VolunteerButtonProps> = ({ swapId, onSuccess }) 
         return;
       }
       
-      const volunteerShiftId = myShifts?.[0]?.id;
-      
-      // Update swap request with volunteer information
-      const { error: updateError } = await supabase
-        .from('swap_requests')
-        .update({ 
-          volunteer_id: user.id,
-          volunteer_shift_id: volunteerShiftId,
-          status: 'Pending' 
-        })
-        .eq('id', swapId);
-        
-      if (updateError) {
-        console.error('Error updating swap request:', updateError);
-        toast.error('Failed to volunteer for this shift');
+      if (!myShifts || myShifts.length === 0) {
+        toast.error('You have no available shifts to volunteer with');
+        setIsLoading(false);
         return;
       }
+      
+      const volunteerShiftId = myShifts[0].id;
+      
+      // Use the API function to volunteer
+      await volunteerForSwap(swapId, volunteerShiftId);
       
       toast.success("You've volunteered for this shift! Awaiting manager approval.");
       
@@ -74,13 +73,15 @@ const VolunteerButton: React.FC<VolunteerButtonProps> = ({ swapId, onSuccess }) 
       variant="outline" 
       className="w-full text-swap hover:bg-swap hover:text-white"
       onClick={handleVolunteer}
-      disabled={isLoading}
+      disabled={isLoading || user?.role === 'Manager'}
     >
       {isLoading ? (
         <span className="flex items-center gap-2">
           <span className="h-4 w-4 border-t-2 border-b-2 border-current rounded-full animate-spin"></span>
           <span>Processing...</span>
         </span>
+      ) : user?.role === 'Manager' ? (
+        'Managers Cannot Volunteer'
       ) : (
         'Volunteer for Shift'
       )}

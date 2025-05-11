@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Swaps = () => {
   const { user } = useAuth();
+  const isManager = user?.role === 'Manager';
 
   useEffect(() => {
     // Update document title
@@ -21,18 +22,25 @@ const Swaps = () => {
       toast.error("You must be logged in to create a swap request");
       return;
     }
+    
+    if (isManager) {
+      toast.error("Managers cannot create swap requests");
+      return false;
+    }
   };
   
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Shift Swap Requests</h2>
-        <Link to="/shifts" onClick={handleCreateRequestClick}>
-          <Button className="gap-2">
-            <PlusCircle className="h-4 w-4" />
-            <span>Create New Request</span>
-          </Button>
-        </Link>
+        {!isManager && (
+          <Link to="/shifts" onClick={handleCreateRequestClick}>
+            <Button className="gap-2">
+              <PlusCircle className="h-4 w-4" />
+              <span>Create New Request</span>
+            </Button>
+          </Link>
+        )}
       </div>
       <OpenSwapsList />
     </Layout>

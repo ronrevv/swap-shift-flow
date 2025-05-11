@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { SwapRequest } from '@/types';
 import { format, parseISO } from 'date-fns';
@@ -68,7 +69,7 @@ export async function getOpenSwapRequests() {
 export async function createSwapRequest(swapData: { shiftId: string, note?: string }) {
   try {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData) {
+    if (!userData || !userData.user) {
       throw new Error('User not authenticated');
     }
     
@@ -87,6 +88,17 @@ export async function createSwapRequest(swapData: { shiftId: string, note?: stri
       throw error;
     }
     
+    // Log the swap request creation
+    await createLogEntry({
+      entityType: 'swap_request',
+      entityId: data.id,
+      action: 'created',
+      details: {
+        shiftId: swapData.shiftId,
+        userId: userData.user.id
+      }
+    });
+    
     return data;
   } catch (error) {
     console.error('Error creating swap request:', error);
@@ -98,8 +110,23 @@ export async function createSwapRequest(swapData: { shiftId: string, note?: stri
 export async function volunteerForSwap(swapId: string, volunteerShiftId: string) {
   try {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData) {
+    if (!userData || !userData.user) {
       throw new Error('User not authenticated');
+    }
+    
+    // Check if user is a manager (managers can't volunteer)
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (profileError) {
+      throw profileError;
+    }
+    
+    if (profileData.role === 'Manager') {
+      throw new Error('Managers cannot volunteer for shift swaps');
     }
     
     const { data, error } = await supabase
@@ -205,8 +232,23 @@ export async function getPendingSwapRequests() {
 export async function approveSwapRequest(swapId: string) {
   try {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData) {
+    if (!userData || !userData.user) {
       throw new Error('User not authenticated');
+    }
+    
+    // Check if user is a manager
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (profileError) {
+      throw profileError;
+    }
+    
+    if (profileData.role !== 'Manager') {
+      throw new Error('Only managers can approve swap requests');
     }
     
     const { data, error } = await supabase
@@ -235,8 +277,23 @@ export async function approveSwapRequest(swapId: string) {
 export async function rejectSwapRequest(swapId: string, reason?: string) {
   try {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData) {
+    if (!userData || !userData.user) {
       throw new Error('User not authenticated');
+    }
+    
+    // Check if user is a manager
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (profileError) {
+      throw profileError;
+    }
+    
+    if (profileData.role !== 'Manager') {
+      throw new Error('Only managers can reject swap requests');
     }
     
     const { data, error } = await supabase
@@ -266,7 +323,7 @@ export async function rejectSwapRequest(swapId: string, reason?: string) {
 export async function getUserSwapHistory() {
   try {
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData) {
+    if (!userData || !userData.user) {
       throw new Error('User not authenticated');
     }
     
@@ -331,6 +388,26 @@ export async function getUserSwapHistory() {
 // Get all swap requests (for managers)
 export async function getAllSwapRequests() {
   try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData || !userData.user) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Check if user is a manager
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+      
+    if (profileError) {
+      throw profileError;
+    }
+    
+    if (profileData.role !== 'Manager') {
+      throw new Error('Only managers can view all swap requests');
+    }
+    
     const { data, error } = await supabase
       .from('swap_requests')
       .select(`

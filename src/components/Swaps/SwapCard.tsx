@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/sonner';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
 import { createLogEntry } from '@/api/logsApi';
+import VolunteerButton from '../Volunteers/VolunteerButton';
 
 interface SwapCardProps {
   swap: SwapRequest;
@@ -63,6 +64,12 @@ const SwapCard: React.FC<SwapCardProps> = ({
       toast.error("You can't volunteer for your own shift!");
       return;
     }
+    
+    if (isManager) {
+      toast.error("Managers cannot volunteer for shift swaps");
+      return;
+    }
+    
     if (onVolunteer) onVolunteer();
   };
   
@@ -212,16 +219,12 @@ const SwapCard: React.FC<SwapCardProps> = ({
         </div>
       </CardContent>
       
-      {isOpen && !isRequester && !isManagerView && (
+      {isOpen && !isRequester && !isManagerView && !isManager && (
         <CardFooter className="px-4 pt-0 pb-4">
-          <Button 
-            variant="outline" 
-            className="w-full text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-blue-200"
-            onClick={handleVolunteer}
-            disabled={isProcessing}
-          >
-            Volunteer to Take Shift
-          </Button>
+          <VolunteerButton 
+            swapId={swap.id}
+            onSuccess={refetch}
+          />
         </CardFooter>
       )}
       

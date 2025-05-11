@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SwapRequest } from '@/types';
 import { Button } from '@/components/ui/button';
 import SwapCard from '../Swaps/SwapCard';
@@ -7,14 +7,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeftRight, Loader2 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ArrowLeftRight, Loader2, RefreshCcw } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest, getAllSwapRequests } from '@/api/swapApi';
 import { createLogEntry } from '@/api/logsApi';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ApprovalList: React.FC = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
@@ -30,9 +31,11 @@ const ApprovalList: React.FC = () => {
   });
   
   // Fetch completed swaps (approved or rejected)
-  const { data: allSwaps, isLoading: allLoading, error: allError } = useQuery({
+  const { data: allSwaps, isLoading: allLoading, error: allError, refetch: refetchAll } = useQuery({
     queryKey: ['allSwaps'],
-    queryFn: getAllSwapRequests
+    queryFn: getAllSwapRequests,
+    refetchInterval: 60000, // Refetch every minute
+    refetchOnWindowFocus: true
   });
   
   // Filter completed swaps (approved or rejected)
@@ -41,9 +44,17 @@ const ApprovalList: React.FC = () => {
   ) || [];
   
   // Debug information
-  console.log("Pending swaps:", pendingSwaps);
-  console.log("All swaps:", allSwaps);
-  console.log("Completed swaps:", completedSwaps);
+  useEffect(() => {
+    console.log("Pending swaps:", pendingSwaps);
+    console.log("All swaps:", allSwaps);
+    console.log("Completed swaps:", completedSwaps);
+  }, [pendingSwaps, allSwaps, completedSwaps]);
+  
+  const handleRefreshData = () => {
+    refetchPending();
+    refetchAll();
+    toast.success("Data refreshed");
+  };
   
   const handleApprove = (swap: SwapRequest) => {
     setSelectedSwap(swap);
@@ -78,7 +89,12 @@ const ApprovalList: React.FC = () => {
       });
       
       toast.success('Shift swap approved successfully!');
+      
+      // Invalidate and refetch data
+      queryClient.invalidateQueries({ queryKey: ['pendingSwaps'] });
+      queryClient.invalidateQueries({ queryKey: ['allSwaps'] });
       refetchPending();
+      refetchAll();
     } catch (error) {
       console.error('Error approving swap request:', error);
       toast.error('Failed to approve swap request. Please try again.');
@@ -117,7 +133,12 @@ const ApprovalList: React.FC = () => {
       });
       
       toast.success('Shift swap rejected with reason.');
+      
+      // Invalidate and refetch data
+      queryClient.invalidateQueries({ queryKey: ['pendingSwaps'] });
+      queryClient.invalidateQueries({ queryKey: ['allSwaps'] });
       refetchPending();
+      refetchAll();
     } catch (error) {
       console.error('Error rejecting swap request:', error);
       toast.error('Failed to reject swap request. Please try again.');
@@ -152,7 +173,13 @@ const ApprovalList: React.FC = () => {
   
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Shift Swap Approvals</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Shift Swap Approvals</h2>
+        <Button variant="outline" onClick={handleRefreshData} className="gap-2">
+          <RefreshCcw className="h-4 w-4" />
+          <span>Refresh Data</span>
+        </Button>
+      </div>
       
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="grid grid-cols-2 w-full md:w-[300px]">
@@ -180,7 +207,10 @@ const ApprovalList: React.FC = () => {
                   onApprove={() => handleApprove(swap)}
                   onReject={() => handleReject(swap)}
                   isManagerView={true}
-                  refetch={refetchPending}
+                  refetch={() => {
+                    refetchPending();
+                    refetchAll();
+                  }}
                 />
               ))}
             </div>
