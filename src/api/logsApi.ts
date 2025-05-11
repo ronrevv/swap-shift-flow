@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ActivityLog } from '@/types';
 import { format } from 'date-fns';
@@ -10,6 +9,12 @@ export async function getActivityLogs({
   dateTo,
   page = 1,
   pageSize = 50
+}: {
+  employeeFilter?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  page?: number;
+  pageSize?: number;
 } = {}) {
   try {
     let query = supabase
