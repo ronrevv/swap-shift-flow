@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SwapRequest } from '@/types';
-import { Check, X, Calendar, ArrowLeftRight } from 'lucide-react';
+import { Check, X, Calendar, ArrowLeftRight, Clock, User } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from '@/components/ui/sonner';
 import { approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
@@ -132,6 +132,21 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
             </div>
             <p className="text-sm">{swap.startTime} - {swap.endTime}</p>
             <p className="font-medium">{swap.requesterName}</p>
+            
+            {/* Display preferred volunteer and time if specified */}
+            {swap.preferredVolunteerName && (
+              <div className="flex items-center mt-2">
+                <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                <p className="text-sm">Preferred: {swap.preferredVolunteerName}</p>
+              </div>
+            )}
+            
+            {swap.preferredTime && (
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                <p className="text-sm">Preferred time: {swap.preferredTime}</p>
+              </div>
+            )}
           </div>
           
           {/* Volunteer shift */}

@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SwapRequest } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeftRight, Check, X, Calendar } from 'lucide-react';
+import { ArrowLeftRight, Check, X, Calendar, Clock, User } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
@@ -183,6 +183,24 @@ const SwapCard: React.FC<SwapCardProps> = ({
             <span className="font-medium">{swap.requesterName}</span>
             {isRequester && <span className="text-blue-500 text-sm ml-2">(You)</span>}
           </p>
+          
+          {/* Preferred time and volunteer section */}
+          {(isPending || isApproved) && (swap.preferredTime || swap.preferredVolunteerName) && (
+            <div className="mb-3 space-y-1">
+              {swap.preferredVolunteerName && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <User className="h-4 w-4 mr-1" />
+                  <span>Preferred volunteer: {swap.preferredVolunteerName}</span>
+                </div>
+              )}
+              {swap.preferredTime && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span>Preferred time: {swap.preferredTime}</span>
+                </div>
+              )}
+            </div>
+          )}
           
           {swap.note && (
             <p className="text-sm text-muted-foreground mb-3 italic">

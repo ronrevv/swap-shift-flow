@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeftRight, Loader2, RefreshCcw } from 'lucide-react';
+import { ArrowLeftRight, Loader2, RefreshCcw, User, Clock } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest, getAllSwapRequests } from '@/api/swapApi';
 import { createLogEntry } from '@/api/logsApi';
@@ -265,14 +265,39 @@ const ApprovalList: React.FC = () => {
                       <span className="font-medium">Time:</span> {selectedSwap.startTime} - {selectedSwap.endTime}
                     </p>
                   </div>
-                  <div className="mb-3">
-                    <p><span className="font-medium">Volunteer Shift:</span></p>
-                    <p className="ml-4">
-                      <span className="font-medium">Employee:</span> {selectedSwap.volunteerName}<br />
-                      <span className="font-medium">Date:</span> {selectedSwap.volunteerShiftDate}<br />
-                      <span className="font-medium">Time:</span> {selectedSwap.volunteerShiftStartTime} - {selectedSwap.volunteerShiftEndTime}
-                    </p>
-                  </div>
+                  
+                  {/* Display preferred volunteer and time if provided */}
+                  {(selectedSwap.preferredVolunteerName || selectedSwap.preferredTime) && (
+                    <div className="mb-3 p-2 bg-blue-50 rounded">
+                      <p><span className="font-medium">Preferences:</span></p>
+                      <p className="ml-4">
+                        {selectedSwap.preferredVolunteerName && (
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-1 text-blue-600" />
+                            <span className="font-medium">Volunteer:</span> {selectedSwap.preferredVolunteerName}
+                          </div>
+                        )}
+                        {selectedSwap.preferredTime && (
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1 text-blue-600" />
+                            <span className="font-medium">Time:</span> {selectedSwap.preferredTime}
+                          </div>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {selectedSwap.volunteerName && (
+                    <div className="mb-3">
+                      <p><span className="font-medium">Volunteer Shift:</span></p>
+                      <p className="ml-4">
+                        <span className="font-medium">Employee:</span> {selectedSwap.volunteerName}<br />
+                        <span className="font-medium">Date:</span> {selectedSwap.volunteerShiftDate}<br />
+                        <span className="font-medium">Time:</span> {selectedSwap.volunteerShiftStartTime} - {selectedSwap.volunteerShiftEndTime}
+                      </p>
+                    </div>
+                  )}
+                  
                   {selectedSwap.note && (
                     <div className="mt-3">
                       <p><span className="font-medium">Request Note:</span></p>
@@ -326,9 +351,25 @@ const ApprovalList: React.FC = () => {
                     <p><span className="font-medium">Date:</span> {selectedSwap.date}</p>
                     <p><span className="font-medium">Time:</span> {selectedSwap.startTime} - {selectedSwap.endTime}</p>
                   </div>
-                  <div className="mb-2">
-                    <p><span className="font-medium">Volunteer:</span> {selectedSwap.volunteerName}</p>
-                  </div>
+                  
+                  {/* Display preferences if provided */}
+                  {(selectedSwap.preferredVolunteerName || selectedSwap.preferredTime) && (
+                    <div className="mb-2">
+                      <p><span className="font-medium">Preferences:</span></p>
+                      {selectedSwap.preferredVolunteerName && (
+                        <p><span className="font-medium">Preferred volunteer:</span> {selectedSwap.preferredVolunteerName}</p>
+                      )}
+                      {selectedSwap.preferredTime && (
+                        <p><span className="font-medium">Preferred time:</span> {selectedSwap.preferredTime}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {selectedSwap.volunteerName && (
+                    <div className="mb-2">
+                      <p><span className="font-medium">Volunteer:</span> {selectedSwap.volunteerName}</p>
+                    </div>
+                  )}
                 </div>
               </div>
               

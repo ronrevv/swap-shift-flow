@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { SwapRequest } from '@/types';
 import { format, parseISO } from 'date-fns';
@@ -14,6 +13,8 @@ export async function getOpenSwapRequests() {
         requester_id,
         shift_id,
         note,
+        preferred_volunteer_name,
+        preferred_time,
         status,
         created_at,
         volunteer_id,
@@ -42,6 +43,8 @@ export async function getOpenSwapRequests() {
       requesterId: swap.requester_id,
       requesterName: swap.requesterProfile?.name || '',
       note: swap.note || undefined,
+      preferredVolunteerName: swap.preferred_volunteer_name || undefined,
+      preferredTime: swap.preferred_time || undefined,
       date: swap.shift?.date || '',
       startTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.start_time}`), 'h:mm a') : '',
       endTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.end_time}`), 'h:mm a') : '',
@@ -66,7 +69,12 @@ export async function getOpenSwapRequests() {
 }
 
 // Create a new swap request
-export async function createSwapRequest(swapData: { shiftId: string, note?: string }) {
+export async function createSwapRequest(swapData: { 
+  shiftId: string, 
+  note?: string,
+  preferredVolunteerName?: string,
+  preferredTime?: string 
+}) {
   try {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData || !userData.user) {
@@ -79,7 +87,9 @@ export async function createSwapRequest(swapData: { shiftId: string, note?: stri
         requester_id: userData.user.id,
         shift_id: swapData.shiftId,
         note: swapData.note || null,
-        status: 'Pending' // Changed from 'Open' to 'Pending' so it appears in manager's approval page immediately
+        preferred_volunteer_name: swapData.preferredVolunteerName || null,
+        preferred_time: swapData.preferredTime || null,
+        status: 'Pending' // Pending status so it appears in manager's approval page immediately
       })
       .select()
       .single();
@@ -95,7 +105,9 @@ export async function createSwapRequest(swapData: { shiftId: string, note?: stri
       action: 'created',
       details: {
         shiftId: swapData.shiftId,
-        userId: userData.user.id
+        userId: userData.user.id,
+        preferredVolunteerName: swapData.preferredVolunteerName,
+        preferredTime: swapData.preferredTime
       }
     });
     
@@ -174,6 +186,8 @@ export async function getPendingSwapRequests() {
         requester_id,
         shift_id,
         note,
+        preferred_volunteer_name,
+        preferred_time,
         status,
         created_at,
         volunteer_id,
@@ -205,6 +219,8 @@ export async function getPendingSwapRequests() {
       requesterId: swap.requester_id,
       requesterName: swap.requesterProfile?.name || '',
       note: swap.note || undefined,
+      preferredVolunteerName: swap.preferred_volunteer_name || undefined,
+      preferredTime: swap.preferred_time || undefined,
       date: swap.shift?.date || '',
       startTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.start_time}`), 'h:mm a') : '',
       endTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.end_time}`), 'h:mm a') : '',

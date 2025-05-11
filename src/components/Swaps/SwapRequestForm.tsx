@@ -4,10 +4,13 @@ import { Shift, SwapRequest } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO } from 'date-fns';
 import { createSwapRequest } from '@/api/swapApi';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
 
 interface SwapRequestFormProps {
   shift: Shift;
@@ -15,14 +18,25 @@ interface SwapRequestFormProps {
   onSuccess?: () => void;
 }
 
+interface SwapFormValues {
+  note: string;
+  preferredVolunteerName: string;
+  preferredTime: string;
+}
+
 const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose, onSuccess }) => {
-  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const form = useForm<SwapFormValues>({
+    defaultValues: {
+      note: '',
+      preferredVolunteerName: '',
+      preferredTime: ''
+    }
+  });
+  
+  const handleSubmit = async (values: SwapFormValues) => {
     if (!user) {
       toast.error('You must be logged in to request a shift swap');
       return;
@@ -31,13 +45,15 @@ const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose, onSuc
     setIsSubmitting(true);
     
     try {
-      // Create swap request using the API function
+      // Create swap request using the API function with additional fields
       await createSwapRequest({
         shiftId: shift.id,
-        note: note || undefined
+        note: values.note || undefined,
+        preferredVolunteerName: values.preferredVolunteerName || undefined,
+        preferredTime: values.preferredTime || undefined
       });
       
-      toast.success('Swap request created successfully!');
+      toast.success('Swap request created successfully! Manager will review your request.');
       
       if (onSuccess) {
         onSuccess();
@@ -61,39 +77,77 @@ const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose, onSuc
         </DialogDescription>
       </DialogHeader>
       
-      <form onSubmit={handleSubmit} className="space-y-4 py-4">
-        <div className="space-y-2">
-          <label htmlFor="note" className="block text-sm font-medium">
-            Note (Optional)
-          </label>
-          <Textarea
-            id="note"
-            placeholder="Add any details about your swap request..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="min-h-[100px] w-full"
-          />
-          <p className="text-sm text-muted-foreground">
-            Your request will be visible to all staff members who can volunteer to take your shift.
-          </p>
-        </div>
-        
-        <DialogFooter className="pt-4">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
-                <span>Submitting...</span>
-              </span>
-            ) : (
-              'Submit Request'
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 py-4">
+          <FormField
+            control={form.control}
+            name="preferredVolunteerName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preferred Volunteer (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter name if you have a preference" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Leave blank if any volunteer is acceptable
+                </FormDescription>
+              </FormItem>
             )}
-          </Button>
-        </DialogFooter>
-      </form>
+          />
+          
+          <FormField
+            control={form.control}
+            name="preferredTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Preferred Time (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. Afternoon or specific time range" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Enter a preferred time if you're looking for a specific time range
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="note"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Additional Details (Optional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Add any details about your swap request..."
+                    className="min-h-[100px] w-full"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Your request will be reviewed by a manager before being available to other staff
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+          
+          <DialogFooter className="pt-4">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
+                  <span>Submitting...</span>
+                </span>
+              ) : (
+                'Submit Request'
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
     </>
   );
 };
