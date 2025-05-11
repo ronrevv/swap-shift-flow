@@ -13,83 +13,116 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
+  // Function to create user profile if it doesn't exist
+  const createUserProfile = async (userId: string, email: string, name: string, role: UserRole) => {
+    try {
+      console.log("Creating profile for user:", userId);
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          name: name,
+          email: email,
+          role: role
+        });
+        
+      if (error) {
+        console.error("Failed to create profile:", error);
+        return false;
+      } else {
+        console.log("Created new profile in database");
+        return true;
+      }
+    } catch (insertErr) {
+      console.error("Error creating profile:", insertErr);
+      return false;
+    }
+  };
+  
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      console.log("Fetching profile for user:", userId);
+      
+      // First try to get the profile
+      let { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle(); // Using maybeSingle instead of single to avoid error when no rows
+  
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+      }
+      
+      // If profile doesn't exist but we have session data, create it
+      if (!data && session?.user) {
+        const metadata = session.user.user_metadata;
+        const email = session.user.email || '';
+        
+        // Determine role based on email or default to Staff
+        const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+        const userName = metadata?.name || email.split('@')[0] || 'User';
+        
+        // Create user profile
+        const success = await createUserProfile(userId, email, userName, userRole);
+        
+        if (success) {
+          // Try to fetch the newly created profile
+          const { data: newData, error: newError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+            
+          if (newError) {
+            console.error("Error fetching new user profile:", newError);
+          } else if (newData) {
+            console.log("Retrieved newly created profile:", newData);
+            data = newData;
+          }
+        } else {
+          // If we couldn't create or fetch the profile, create a temporary one
+          data = {
+            id: userId,
+            name: userName,
+            email: email,
+            role: userRole,
+            created_at: new Date().toISOString()
+          };
+          console.log("Using temporary profile data:", data);
+        }
+      }
+      
+      if (data) {
+        console.log("Profile data retrieved:", data);
+        const userProfile: User = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          role: data.role as UserRole
+        };
+        setUser(userProfile);
+        return userProfile;
+      } else {
+        console.log("No profile found for user");
+        setUser(null);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error in profile fetch:", error);
+      return null;
+    } finally {
+      console.log("Setting isLoading to false after profile fetch");
+      setIsLoading(false);
+      setInitialLoadComplete(true);
+    }
+  };
+  
   // Initialize authentication on load
   useEffect(() => {
     console.log("AuthProvider: Initializing");
     let mounted = true;
-    
-    const fetchUserProfile = async (userId: string) => {
-      try {
-        console.log("Fetching profile for user:", userId);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-  
-        if (error) {
-          console.error("Error fetching user profile:", error);
-          // Create a profile from session data if profile doesn't exist
-          if (session?.user) {
-            const metadata = session.user.user_metadata;
-            const email = session.user.email || '';
-            
-            // Create user from auth data
-            const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
-            const userName = metadata?.name || email.split('@')[0] || 'User';
-            
-            const userProfile: User = {
-              id: userId,
-              name: userName,
-              email: email,
-              role: userRole
-            };
-            
-            console.log("Created user profile from session:", userProfile);
-            setUser(userProfile);
-            
-            // Try to create the profile in the database
-            try {
-              const { error: insertError } = await supabase
-                .from('profiles')
-                .insert({
-                  id: userId,
-                  name: userName,
-                  email: email,
-                  role: userRole
-                });
-                
-              if (insertError) {
-                console.error("Failed to create profile:", insertError);
-              } else {
-                console.log("Created new profile in database");
-              }
-            } catch (insertErr) {
-              console.error("Error creating profile:", insertErr);
-            }
-          }
-        } else if (data) {
-          console.log("Profile data retrieved:", data);
-          setUser({
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            role: data.role as UserRole
-          });
-        } else {
-          console.log("No profile found for user");
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Error in profile fetch:", error);
-      } finally {
-        if (mounted) {
-          console.log("Setting isLoading to false after profile fetch");
-          setIsLoading(false);
-          setInitialLoadComplete(true);
-        }
-      }
-    };
     
     // FIRST set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -136,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (currentSession?.user) {
           console.log("Existing session found, fetching user profile");
-          fetchUserProfile(currentSession.user.id);
+          await fetchUserProfile(currentSession.user.id);
         } else {
           console.log("No existing session found");
           setUser(null);
@@ -187,6 +220,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log("Login successful, data:", data);
       toast.success(`Welcome back!`);
+      
+      // Create user profile if needed
+      if (data.session?.user) {
+        const metadata = data.session.user.user_metadata;
+        const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+        const userName = metadata?.name || email.split('@')[0] || 'User';
+        
+        // Check if profile exists
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+          
+        if (profileError || !profileData) {
+          console.log("Profile not found, creating one");
+          await createUserProfile(
+            data.session.user.id, 
+            email, 
+            userName, 
+            userRole
+          );
+        }
+      }
+      
       return data;
     } catch (error: any) {
       console.error("Login error:", error);
@@ -231,6 +289,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         toast.error(error.message);
         throw error;
+      }
+      
+      // Create user profile
+      if (data.user) {
+        const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+        await createUserProfile(data.user.id, email, name, userRole);
       }
       
       toast.success("Registration successful! Please check your email for confirmation.");

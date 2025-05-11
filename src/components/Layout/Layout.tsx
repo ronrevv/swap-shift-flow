@@ -32,13 +32,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [isAuthenticated, isLoading, initialLoadComplete, navigate, user]);
 
-  // Show loading indicator while checking authentication
-  if ((isLoading && !initialLoadComplete) || (isAuthenticated && !user)) {
+  // Show loading indicator during authentication check
+  if (isLoading || (!initialLoadComplete)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-sm text-muted-foreground">
-          {isAuthenticated ? "Loading your profile..." : "Loading your application..."}
+          Loading your application...
+        </p>
+      </div>
+    );
+  }
+
+  // Show loading state if authenticated but profile still loading
+  if (isAuthenticated && !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">
+          Loading your profile...
         </p>
       </div>
     );

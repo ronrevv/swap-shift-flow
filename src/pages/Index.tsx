@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginForm from '@/components/Auth/LoginForm';
@@ -36,7 +36,7 @@ const Index = () => {
   }, [isAuthenticated, initialLoadComplete, user, navigate]);
   
   // Early return during authentication check to prevent flash of login screen
-  if ((isLoading && !initialLoadComplete) || (isAuthenticated && !user)) {
+  if (isLoading || (isAuthenticated && !initialLoadComplete)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
