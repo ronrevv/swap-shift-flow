@@ -33,7 +33,7 @@ const Dashboard = () => {
     );
   }
 
-  // Redirect to login if not authenticated and we've completed initial load
+  // Redirect to login if not authenticated
   if (!isAuthenticated && initialLoadComplete) {
     console.log("Dashboard: Not authenticated, redirecting to login");
     return <Navigate to="/" replace />;

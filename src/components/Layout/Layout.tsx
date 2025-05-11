@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Effect to handle authentication redirects
+  // Log the auth state for debugging
   useEffect(() => {
     console.log("Layout: Auth state:", { 
       isAuthenticated, 
@@ -25,6 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       userExists: !!user 
     });
     
+    // Only redirect once we're sure the user isn't authenticated
     if (initialLoadComplete && !isLoading && !isAuthenticated) {
       console.log("Layout: Not authenticated after load complete, redirecting to login");
       navigate("/", { replace: true });
@@ -32,31 +33,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [isAuthenticated, isLoading, initialLoadComplete, navigate, user]);
 
   // Show loading indicator while checking authentication
-  if (isLoading && !initialLoadComplete) {
+  if ((isLoading && !initialLoadComplete) || (isAuthenticated && !user)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-sm text-muted-foreground">Loading your application...</p>
+        <p className="text-sm text-muted-foreground">
+          {isAuthenticated ? "Loading your profile..." : "Loading your application..."}
+        </p>
       </div>
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated after initial load
   if (initialLoadComplete && !isAuthenticated) {
     console.log("Layout: Not authenticated, redirecting to login");
     return <Navigate to="/" state={{ from: location }} replace />;
   }
   
-  // Show a different loading state when authenticated but still loading user data
-  if (isAuthenticated && !user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-sm text-muted-foreground">Loading your profile...</p>
-      </div>
-    );
-  }
-
   console.log("Layout: Authenticated, rendering dashboard");
   return (
     <SidebarProvider>

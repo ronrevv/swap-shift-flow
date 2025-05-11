@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const Index = () => {
-  const { isAuthenticated, isLoading, initialLoadComplete } = useAuth();
+  const { isAuthenticated, isLoading, initialLoadComplete, user } = useAuth();
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedError, setSeedError] = useState('');
   const navigate = useNavigate();
@@ -19,28 +19,37 @@ const Index = () => {
     // Update document title
     document.title = "ShiftSwap - Login";
     
-    console.log("Index page - Auth state:", { isAuthenticated, isLoading, initialLoadComplete });
-    
+    console.log("Index page - Auth state:", { 
+      isAuthenticated, 
+      isLoading, 
+      initialLoadComplete, 
+      hasUser: !!user 
+    });
+  }, [isAuthenticated, initialLoadComplete, isLoading, user]);
+  
+  useEffect(() => {
     // Only redirect when we're sure about authentication state
-    if (isAuthenticated && initialLoadComplete) {
-      console.log("Index: User is authenticated, redirecting to dashboard");
+    if (isAuthenticated && initialLoadComplete && user) {
+      console.log("Index: User is authenticated and profile loaded, redirecting to dashboard");
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, initialLoadComplete, navigate, isLoading]);
+  }, [isAuthenticated, initialLoadComplete, user, navigate]);
   
   // Early return during authentication check to prevent flash of login screen
-  if (isLoading || (isAuthenticated && !initialLoadComplete)) {
+  if ((isLoading && !initialLoadComplete) || (isAuthenticated && !user)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-sm text-muted-foreground">Checking authentication...</p>
+        <p className="text-sm text-muted-foreground">
+          {isAuthenticated ? "Loading your profile..." : "Checking authentication..."}
+        </p>
       </div>
     );
   }
   
-  // If logged in and loading complete, redirect to dashboard
-  if (isAuthenticated) {
-    console.log("Index: User is authenticated, redirecting to dashboard");
+  // If logged in and profile loaded, redirect to dashboard
+  if (isAuthenticated && user) {
+    console.log("Index: User is authenticated with profile, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
   
