@@ -27,10 +27,11 @@ const Index = () => {
   }, [isAuthenticated, initialLoadComplete, navigate]);
   
   // Early return during authentication check to prevent flash of login screen
-  if (isLoading || (isAuthenticated && !initialLoadComplete)) {
+  if (isLoading && !initialLoadComplete) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Checking authentication...</p>
       </div>
     );
   }
