@@ -5,6 +5,7 @@ import { format, addDays } from 'https://esm.sh/date-fns@3.6.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
 };
 
 interface ShiftData {
@@ -33,7 +34,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         error: 'Server configuration error: Missing required environment variables'
       }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         status: 500 
       });
     }
@@ -43,7 +44,13 @@ Deno.serve(async (req) => {
       supabaseServiceRoleKey,
       { 
         auth: { persistSession: false },
-        global: { headers: { 'X-Client-Info': 'seed-demo-data' } }
+        global: { 
+          headers: { 
+            'X-Client-Info': 'seed-demo-data',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          } 
+        }
       }
     );
     
@@ -52,30 +59,37 @@ Deno.serve(async (req) => {
     // Check for existing users first
     const { data: existingUsers, error: existingUsersError } = await supabaseAdmin
       .from('profiles')
-      .select('id, email');
+      .select('id, email, role, name')
+      .limit(10);
       
     if (existingUsersError) {
       console.error("Error checking existing users:", existingUsersError);
       return new Response(JSON.stringify({
         error: `Error checking existing users: ${existingUsersError.message}`
       }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         status: 500 
       });
     }
+    
+    const demoUserEmails = ['manager@shiftswap.com', 'staff@shiftswap.com', 'bob@shiftswap.com'];
+    const existingDemoUsers = existingUsers?.filter(u => 
+      demoUserEmails.includes(u.email?.toLowerCase() || '')
+    ) || [];
       
-    if (existingUsers && existingUsers.length > 0) {
-      console.log("Found existing users:", existingUsers.length);
+    if (existingDemoUsers && existingDemoUsers.length > 0) {
+      console.log("Found existing users:", existingDemoUsers.length);
       return new Response(JSON.stringify({
-        message: 'Demo data already exists',
-        users: existingUsers.length
+        message: 'Demo users already exist',
+        users: existingDemoUsers.length,
+        existingUsers: existingDemoUsers
       }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         status: 200 
       });
     }
 
-    console.log("No existing users found. Creating demo data...");
+    console.log("No existing demo users found. Creating demo data...");
 
     // Create demo users
     const demoUsers = [
@@ -100,6 +114,7 @@ Deno.serve(async (req) => {
     ];
 
     const userIds = {};
+    const createdProfiles = [];
     
     // Create users
     for (const user of demoUsers) {
@@ -131,19 +146,22 @@ Deno.serve(async (req) => {
         console.log(`Created auth user for ${user.email} with ID ${authUser.user.id}`);
         
         // Create profile manually with service role client to bypass RLS
-        const { error: profileError } = await supabaseAdmin
+        const { data: profile, error: profileError } = await supabaseAdmin
           .from('profiles')
           .insert({
             id: authUser.user.id,
             name: user.name,
             email: user.email,
             role: user.role
-          });
+          })
+          .select()
+          .single();
           
         if (profileError) {
           console.error(`Error creating profile for ${user.email}:`, profileError);
         } else {
           console.log(`Created profile for ${user.name} with role ${user.role}`);
+          createdProfiles.push(profile);
         }
       } catch (err) {
         console.error(`Error in user creation process for ${user.email}:`, err);
@@ -154,6 +172,7 @@ Deno.serve(async (req) => {
     if (Object.keys(userIds).length > 0) {
       const today = new Date();
       const roles = ['Cashier', 'Stocker', 'Customer Service', 'Manager', 'Warehouse'];
+      const createdShifts = [];
       
       for (const email in userIds) {
         const userId = userIds[email];
@@ -186,14 +205,16 @@ Deno.serve(async (req) => {
         // Insert shifts using admin client to bypass RLS
         if (shifts.length > 0) {
           console.log(`Creating ${shifts.length} shifts for ${email}`);
-          const { error: shiftsError } = await supabaseAdmin
+          const { data: shiftData, error: shiftsError } = await supabaseAdmin
             .from('shifts')
-            .insert(shifts);
+            .insert(shifts)
+            .select();
             
           if (shiftsError) {
             console.error(`Error creating shifts for ${email}:`, shiftsError);
           } else {
             console.log(`Created ${shifts.length} shifts for ${email}`);
+            createdShifts.push(...shiftData);
           }
         }
       }
@@ -202,6 +223,7 @@ Deno.serve(async (req) => {
       const managerUser = userIds['manager@shiftswap.com'];
       const staffUser1 = userIds['staff@shiftswap.com'];
       const staffUser2 = userIds['bob@shiftswap.com'];
+      const createdSwapRequests = [];
       
       // Get first shift for each staff member
       if (staffUser1) {
@@ -219,24 +241,26 @@ Deno.serve(async (req) => {
           
         if (staffShifts && staffShifts.length > 0) {
           // Create open swap request
-          const { error: openSwapError } = await supabaseAdmin
+          const { data: openSwapRequest, error: openSwapError } = await supabaseAdmin
             .from('swap_requests')
             .insert({
               shift_id: staffShifts[0].id,
               requester_id: staffUser1,
               status: 'Open',
               note: 'I have a doctor appointment this day, can anyone take my shift?',
-            });
+            })
+            .select();
             
           if (openSwapError) {
             console.error('Error creating open swap request:', openSwapError);
           } else {
             console.log('Created open swap request');
+            createdSwapRequests.push(...openSwapRequest);
           }
           
           // Create pending swap request if we have enough shifts and staffUser2 exists
           if (staffShifts.length > 1 && staffUser2) {
-            const { error: pendingSwapError } = await supabaseAdmin
+            const { data: pendingSwapRequest, error: pendingSwapError } = await supabaseAdmin
               .from('swap_requests')
               .insert({
                 shift_id: staffShifts[1].id,
@@ -244,12 +268,14 @@ Deno.serve(async (req) => {
                 status: 'Pending',
                 volunteer_id: staffUser2,
                 note: 'Family emergency, need this day off',
-              });
+              })
+              .select();
               
             if (pendingSwapError) {
               console.error('Error creating pending swap request:', pendingSwapError);
             } else {
               console.log('Created pending swap request');
+              createdSwapRequests.push(...pendingSwapRequest);
             }
           }
         }
@@ -258,9 +284,12 @@ Deno.serve(async (req) => {
       console.log("Seed data creation complete");
       return new Response(JSON.stringify({
         message: 'Demo data seeded successfully',
-        users: Object.keys(userIds).length
+        users: createdProfiles.length,
+        profiles: createdProfiles,
+        shifts: createdShifts.length,
+        swapRequests: createdSwapRequests.length
       }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         status: 200 
       });
     } else {
@@ -269,7 +298,7 @@ Deno.serve(async (req) => {
         message: 'No users created',
         users: 0
       }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: corsHeaders,
         status: 200 // Changed from 400 to 200 to prevent client errors
       });
     }
@@ -280,7 +309,7 @@ Deno.serve(async (req) => {
       error: error.message || 'Unknown error occurred',
       details: error.toString()
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: corsHeaders,
       status: 500
     });
   }

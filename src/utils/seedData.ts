@@ -9,7 +9,13 @@ export const seedDemoData = async () => {
     
     // Add detailed error handling for the edge function call
     try {
-      const { data, error } = await supabase.functions.invoke('seed-demo-data');
+      // Add proper Accept header to avoid 406 Not Acceptable errors
+      const { data, error } = await supabase.functions.invoke('seed-demo-data', {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        }
+      });
       
       if (error) {
         console.error('Error seeding demo data:', error);
@@ -18,6 +24,12 @@ export const seedDemoData = async () => {
       }
       
       console.log('Seed result:', data);
+      
+      if (data && data.error) {
+        toast.error(`Seeding error: ${data.error}`);
+        return false;
+      }
+      
       toast.success(data.message || 'Demo data seeded successfully');
       
       if (data.users === 0) {

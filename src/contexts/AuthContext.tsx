@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, UserRole, AuthContextType } from '@/types';
 import { toast } from "@/components/ui/sonner";
@@ -18,17 +19,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Creating profile for user:", userId);
       
       // First check if profile exists to avoid duplicate attempts
-      const { data: existingProfile } = await supabase
+      const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error("Error checking for existing profile:", checkError);
+      }
         
       if (existingProfile) {
         console.log("Profile already exists:", existingProfile);
-        return true;
+        return existingProfile;
       }
       
+      // Setup proper headers to avoid 406 errors
       const { data, error } = await supabase
         .from('profiles')
         .insert({
@@ -36,22 +42,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: name,
           email: email,
           role: role
-        });
+        })
+        .select()
+        .single();
         
       if (error) {
         console.error("Failed to create profile:", error);
         
-        // Since profile insertion might fail due to RLS, let's assume the
-        // profile will be created by the database trigger (handle_new_user)
-        return true;
+        // Since profile insertion might fail due to RLS, try using service role function
+        // This is a fallback approach
+        try {
+          const { error: fnError } = await supabase.functions.invoke('create-profile', {
+            body: { userId, name, email, role }
+          });
+          
+          if (fnError) {
+            console.error("Failed to create profile via function:", fnError);
+            return null;
+          }
+          
+          // Try fetching again after creation attempt
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+            
+          return newProfile;
+        } catch (fnErr) {
+          console.error("Error invoking profile creation function:", fnErr);
+          return null;
+        }
       } else {
-        console.log("Created new profile in database");
-        return true;
+        console.log("Created new profile in database:", data);
+        return data;
       }
     } catch (insertErr) {
       console.error("Error creating profile:", insertErr);
-      // Don't fail auth flow if profile creation fails
-      return true;
+      return null;
     }
   };
   
@@ -59,49 +87,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Fetching profile for user:", userId);
       
-      // First try to get the profile
+      // First try to get the profile with proper headers
       let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
   
       if (error) {
-        // If error is "no rows", create profile
-        if (error.code === 'PGRST116') {
-          console.log("Profile not found in database");
-          
-          // If profile doesn't exist but we have session data, create it
-          if (session?.user) {
-            const metadata = session.user.user_metadata;
-            const email = session.user.email || '';
-            
-            // Determine role based on email or default to Staff
-            const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
-            const userName = metadata?.name || email.split('@')[0] || 'User';
-            
-            // Create user profile
-            const success = await createUserProfile(userId, email, userName, userRole);
-            
-            if (success) {
-              // Try to fetch the newly created profile
-              const { data: newData, error: newError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-                
-              if (newError) {
-                console.error("Error fetching new user profile:", newError);
-              } else if (newData) {
-                console.log("Retrieved newly created profile:", newData);
-                data = newData;
-              }
-            }
-          }
-        } else {
-          console.error("Error fetching user profile:", error);
-        }
+        console.error("Error fetching user profile:", error);
       }
       
       if (data) {
@@ -115,15 +109,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(userProfile);
         return userProfile;
       } else {
-        console.log("No profile found for user");
+        console.log("No profile found in database");
         
-        // Create temporary user based on auth data
+        // If profile doesn't exist but we have session data, create it
         if (session?.user) {
           const metadata = session.user.user_metadata;
           const email = session.user.email || '';
+          
+          // Determine role based on email or default to Staff
           const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
           const userName = metadata?.name || email.split('@')[0] || 'User';
           
+          // Create user profile
+          const newProfile = await createUserProfile(userId, email, userName, userRole);
+          
+          if (newProfile) {
+            const userProfile: User = {
+              id: newProfile.id,
+              name: newProfile.name,
+              email: newProfile.email,
+              role: newProfile.role as UserRole
+            };
+            setUser(userProfile);
+            return userProfile;
+          }
+          
+          // If creation failed, create temporary user
           const tempUser: User = {
             id: userId,
             name: userName,
@@ -175,7 +186,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("Auth state change: User is authenticated, fetching profile");
           // Use setTimeout to prevent potential deadlock with Supabase auth
           setTimeout(() => {
-            fetchUserProfile(currentSession.user.id);
+            if (mounted) {
+              fetchUserProfile(currentSession.user.id);
+            }
           }, 0);
         } else {
           console.log("Auth state change: No user found");
@@ -233,11 +246,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           // Seed demo data first to ensure demo accounts exist, but don't fail if this errors
           console.log("Seeding demo data for demo account login");
-          const seedResult = await supabase.functions.invoke('seed-demo-data')
-            .catch(err => {
-              console.log("Note: Demo data seeding failed but continuing with login", err);
-              return { data: null, error: err };
-            });
+          const seedResult = await supabase.functions.invoke('seed-demo-data', {
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            }
+          }).catch(err => {
+            console.log("Note: Demo data seeding failed but continuing with login", err);
+            return { data: null, error: err };
+          });
           console.log("Seeded demo data before login attempt", seedResult);
         } catch (seedError) {
           // Don't fail the login if seeding fails
@@ -246,7 +263,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Proceed with normal login regardless of seed result
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
         console.error("Login error:", error);
