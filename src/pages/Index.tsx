@@ -6,10 +6,13 @@ import LoginForm from '@/components/Auth/LoginForm';
 import { seedDemoData } from '@/utils/seedData';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const Index = () => {
   const { isAuthenticated } = useAuth();
   const [isSeeding, setIsSeeding] = useState(false);
+  const [seedError, setSeedError] = useState('');
   
   useEffect(() => {
     // Update document title
@@ -23,8 +26,15 @@ const Index = () => {
   
   const handleSeedData = async () => {
     setIsSeeding(true);
+    setSeedError('');
     try {
-      await seedDemoData();
+      const result = await seedDemoData();
+      if (!result) {
+        setSeedError('There was a problem seeding demo data. Please try again.');
+      }
+    } catch (error: any) {
+      console.error("Error seeding data:", error);
+      setSeedError(error.message || 'Failed to seed demo data');
     } finally {
       setIsSeeding(false);
     }
@@ -42,23 +52,14 @@ const Index = () => {
         
         <LoginForm />
         
-        <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>For demo purposes, you can use:</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono bg-white p-3 rounded-md shadow-sm">
-            <div>
-              <p className="font-semibold">Manager:</p>
-              <p>manager@shiftswap.com</p>
-            </div>
-            <div>
-              <p className="font-semibold">Staff:</p>
-              <p>staff@shiftswap.com</p>
-            </div>
-            <div className="col-span-2 mt-2">
-              <p className="font-semibold">Password: </p>
-              <p>password</p>
-            </div>
+        {seedError && (
+          <div className="mt-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{seedError}</AlertDescription>
+            </Alert>
           </div>
-        </div>
+        )}
         
         <div className="mt-8 flex justify-center">
           <Button 
@@ -76,6 +77,10 @@ const Index = () => {
               'Seed Demo Data'
             )}
           </Button>
+        </div>
+
+        <div className="mt-4 text-center text-xs text-muted-foreground">
+          <p>Having trouble logging in? Try clicking "Seed Demo Data" first, then use the demo accounts.</p>
         </div>
       </div>
     </div>

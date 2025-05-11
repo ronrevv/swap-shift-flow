@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/sonner';
 
 export const seedDemoData = async () => {
   try {
+    console.log("Seeding demo data...");
     const { data, error } = await supabase.functions.invoke('seed-demo-data');
     
     if (error) {
@@ -13,7 +14,7 @@ export const seedDemoData = async () => {
     }
     
     console.log('Seed result:', data);
-    toast.success(data.message);
+    toast.success(data.message || 'Demo data seeded successfully');
     return true;
   } catch (error) {
     console.error('Error calling seed function:', error);

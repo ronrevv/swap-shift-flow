@@ -7,59 +7,71 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const LoginForm: React.FC = () => {
   // Login state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
   
   // Registration state
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [registerError, setRegisterError] = useState('');
   
   const { login, register, isLoading } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError('');
+    
     if (!email || !password) {
-      toast.error('Please enter both email and password');
+      setLoginError('Please enter both email and password');
       return;
     }
 
     try {
       await login(email, password);
-    } catch (error) {
-      // Error is handled in AuthContext
+    } catch (error: any) {
+      console.error("Login form error:", error);
+      setLoginError(error.message || 'Failed to sign in');
     }
   };
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRegisterError('');
+    
     if (!registerEmail || !registerPassword || !registerName) {
-      toast.error('Please fill in all fields');
+      setRegisterError('Please fill in all fields');
       return;
     }
     
     if (registerPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      setRegisterError('Passwords do not match');
       return;
     }
 
     try {
       await register(registerEmail, registerPassword, registerName);
-    } catch (error) {
-      // Error is handled in AuthContext
+    } catch (error: any) {
+      console.error("Registration form error:", error);
+      setRegisterError(error.message || 'Failed to create account');
     }
   };
 
   const handleDemoLogin = async (role: 'Manager' | 'Staff') => {
+    setLoginError('');
     const demoEmail = role === 'Manager' ? 'manager@shiftswap.com' : 'staff@shiftswap.com';
     try {
       await login(demoEmail, 'password');
-    } catch (error) {
-      // Error is handled in AuthContext
+    } catch (error: any) {
+      console.error(`Demo ${role} login error:`, error);
+      setLoginError(`Demo ${role} login failed: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -81,6 +93,13 @@ const LoginForm: React.FC = () => {
         <TabsContent value="login">
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4 pt-4">
+              {loginError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{loginError}</AlertDescription>
+                </Alert>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input 
@@ -160,6 +179,13 @@ const LoginForm: React.FC = () => {
         <TabsContent value="register">
           <form onSubmit={handleRegister}>
             <CardContent className="space-y-4 pt-4">
+              {registerError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{registerError}</AlertDescription>
+                </Alert>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="register-name">Full Name</Label>
                 <Input 
@@ -228,24 +254,6 @@ const LoginForm: React.FC = () => {
           </form>
         </TabsContent>
       </Tabs>
-      
-      <div className="mt-4 px-6 pb-6 text-center text-sm text-muted-foreground">
-        <p>For demo purposes, you can use:</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono bg-white p-3 rounded-md shadow-sm">
-          <div>
-            <p className="font-semibold">Manager:</p>
-            <p>manager@shiftswap.com</p>
-          </div>
-          <div>
-            <p className="font-semibold">Staff:</p>
-            <p>staff@shiftswap.com</p>
-          </div>
-          <div className="col-span-2 mt-2">
-            <p className="font-semibold">Password: </p>
-            <p>password</p>
-          </div>
-        </div>
-      </div>
     </Card>
   );
 };
