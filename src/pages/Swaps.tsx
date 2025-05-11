@@ -33,7 +33,7 @@ const Swaps = () => {
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Shift Swap Requests</h2>
+        <h2 className="text-2xl font-bold">Approved Shift Swap Requests</h2>
         {!isManager && (
           <Link to="/shifts" onClick={handleCreateRequestClick}>
             <Button className="gap-2">

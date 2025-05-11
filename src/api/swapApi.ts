@@ -28,7 +28,7 @@ export async function getOpenSwapRequests() {
         shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
         volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
       `)
-      .eq('status', 'Open')
+      .eq('status', 'Approved')
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -79,7 +79,7 @@ export async function createSwapRequest(swapData: { shiftId: string, note?: stri
         requester_id: userData.user.id,
         shift_id: swapData.shiftId,
         note: swapData.note || null,
-        status: 'Open'
+        status: 'Pending' // Changed from 'Open' to 'Pending' so it appears in manager's approval page immediately
       })
       .select()
       .single();

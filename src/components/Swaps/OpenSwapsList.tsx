@@ -11,7 +11,7 @@ const OpenSwapsList = () => {
   const { user } = useAuth();
   const isManager = user?.role === 'Manager';
   
-  // Fetch open swap requests
+  // Fetch open swap requests (now only approved ones)
   const {
     data: openSwaps,
     isLoading: isOpenLoading,
@@ -81,29 +81,29 @@ const OpenSwapsList = () => {
         <div className="rounded-full bg-muted p-3 mb-3">
           <ArrowLeftRight className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h3 className="font-medium text-lg">No swap requests</h3>
+        <h3 className="font-medium text-lg">No approved swap requests</h3>
         <p className="text-muted-foreground text-center mt-1 max-w-md">
           {!user ? "Please log in to view and manage shift swaps." :
-           isManager ? "There are no active shift swap requests right now." :
-           "There are no active shift swap requests right now. Create your own request to start swapping shifts."}
+           isManager ? "There are no approved shift swap requests right now." :
+           "There are no approved shift swap requests right now."}
         </p>
       </div>
     );
   }
   
-  // For managers, only show the "Available Swaps" tab
+  // For managers, only show the "Available Swaps" tab (which are approved swaps)
   if (isManager) {
     return (
       <div className="mt-6">
-        <h3 className="font-medium text-lg mb-4">Available Swaps</h3>
+        <h3 className="font-medium text-lg mb-4">Approved Swaps</h3>
         {!hasOpenSwaps ? (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="rounded-full bg-muted p-3 mb-3">
               <ArrowLeftRight className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h3 className="font-medium text-lg">No available swaps</h3>
+            <h3 className="font-medium text-lg">No approved swaps</h3>
             <p className="text-muted-foreground text-center mt-1 max-w-md">
-              There are no open shift swap requests right now.
+              There are no approved shift swap requests right now.
             </p>
           </div>
         ) : (
@@ -125,7 +125,7 @@ const OpenSwapsList = () => {
   return (
     <Tabs defaultValue="openSwaps" className="w-full">
       <TabsList className="grid grid-cols-2 w-full md:w-[400px]">
-        <TabsTrigger value="openSwaps">Available Swaps</TabsTrigger>
+        <TabsTrigger value="openSwaps">Approved Swaps</TabsTrigger>
         <TabsTrigger value="mySwaps">My Swaps</TabsTrigger>
       </TabsList>
       
@@ -135,9 +135,9 @@ const OpenSwapsList = () => {
             <div className="rounded-full bg-muted p-3 mb-3">
               <ArrowLeftRight className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h3 className="font-medium text-lg">No available swaps</h3>
+            <h3 className="font-medium text-lg">No approved swaps</h3>
             <p className="text-muted-foreground text-center mt-1 max-w-md">
-              There are no open shift swap requests right now. Check back later or create your own request.
+              There are no approved shift swap requests right now. Check back later or create your own request.
             </p>
           </div>
         ) : (

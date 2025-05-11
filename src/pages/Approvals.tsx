@@ -28,7 +28,7 @@ const Approvals = () => {
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Shift Swap Approvals</h2>
+        <h2 className="text-2xl font-bold">Pending Shift Swap Requests</h2>
       </div>
       <ApprovalList />
     </Layout>

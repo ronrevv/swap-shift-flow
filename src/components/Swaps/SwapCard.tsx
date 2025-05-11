@@ -34,7 +34,6 @@ const SwapCard: React.FC<SwapCardProps> = ({
   const isVolunteer = user?.id === swap.volunteerId;
   const isManager = user?.role === 'Manager';
   const isPending = swap.status === 'Pending';
-  const isOpen = swap.status === 'Open';
   const isApproved = swap.status === 'Approved';
   const isRejected = swap.status === 'Rejected';
   
@@ -153,7 +152,6 @@ const SwapCard: React.FC<SwapCardProps> = ({
   };
   
   const getStatusBadge = () => {
-    if (isOpen) return <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">Available</span>;
     if (isPending) return <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full font-medium">Pending Approval</span>;
     if (isApproved) return <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">Approved</span>;
     if (isRejected) return <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-medium">Rejected</span>;
@@ -219,7 +217,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
         </div>
       </CardContent>
       
-      {isOpen && !isRequester && !isManagerView && !isManager && (
+      {isApproved && !isRequester && !isManagerView && !isManager && !isVolunteer && (
         <CardFooter className="px-4 pt-0 pb-4">
           <VolunteerButton 
             swapId={swap.id}
