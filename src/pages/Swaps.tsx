@@ -17,15 +17,16 @@ const Swaps = () => {
     document.title = "ShiftSwap - Swap Requests";
   }, []);
   
-  const handleCreateRequestClick = () => {
+  const handleCreateRequestClick = (e: React.MouseEvent) => {
     if (!user) {
+      e.preventDefault();
       toast.error("You must be logged in to create a swap request");
       return;
     }
     
     if (isManager) {
+      e.preventDefault();
       toast.error("Managers cannot create swap requests");
-      return false;
     }
   };
   

@@ -37,6 +37,11 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
   };
   
   const handleApprove = async () => {
+    if (!user || user.role !== 'Manager') {
+      toast.error("Only managers can approve swap requests");
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       await approveSwapRequest(swap.id);
@@ -66,6 +71,11 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
   };
   
   const handleReject = async () => {
+    if (!user || user.role !== 'Manager') {
+      toast.error("Only managers can reject swap requests");
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       const reason = prompt('Please provide a reason for rejection (optional):');
@@ -151,7 +161,7 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
           variant="outline" 
           className="text-green-600 border-green-200 hover:bg-green-50"
           onClick={handleApprove}
-          disabled={isProcessing}
+          disabled={isProcessing || user?.role !== 'Manager'}
         >
           <Check className="h-4 w-4 mr-1" />
           {isProcessing ? 'Processing...' : 'Approve'}
@@ -160,7 +170,7 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
           variant="outline" 
           className="text-red-600 border-red-200 hover:bg-red-50"
           onClick={handleReject}
-          disabled={isProcessing}
+          disabled={isProcessing || user?.role !== 'Manager'}
         >
           <X className="h-4 w-4 mr-1" />
           {isProcessing ? 'Processing...' : 'Reject'}
