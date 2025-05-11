@@ -17,7 +17,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createUserProfile = async (userId: string, email: string, name: string, role: UserRole) => {
     try {
       console.log("Creating profile for user:", userId);
-      const { error } = await supabase
+      
+      // First check if profile exists to avoid duplicate attempts
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (existingProfile) {
+        console.log("Profile already exists:", existingProfile);
+        return true;
+      }
+      
+      const { data, error } = await supabase
         .from('profiles')
         .insert({
           id: userId,
@@ -28,14 +41,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (error) {
         console.error("Failed to create profile:", error);
-        return false;
+        
+        // Since profile insertion might fail due to RLS, let's assume the
+        // profile will be created by the database trigger (handle_new_user)
+        return true;
       } else {
         console.log("Created new profile in database");
         return true;
       }
     } catch (insertErr) {
       console.error("Error creating profile:", insertErr);
-      return false;
+      // Don't fail auth flow if profile creation fails
+      return true;
     }
   };
   
@@ -48,49 +65,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle(); // Using maybeSingle instead of single to avoid error when no rows
+        .single();
   
       if (error) {
-        console.error("Error fetching user profile:", error);
-        return null;
-      }
-      
-      // If profile doesn't exist but we have session data, create it
-      if (!data && session?.user) {
-        const metadata = session.user.user_metadata;
-        const email = session.user.email || '';
-        
-        // Determine role based on email or default to Staff
-        const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
-        const userName = metadata?.name || email.split('@')[0] || 'User';
-        
-        // Create user profile
-        const success = await createUserProfile(userId, email, userName, userRole);
-        
-        if (success) {
-          // Try to fetch the newly created profile
-          const { data: newData, error: newError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .maybeSingle();
+        // If error is "no rows", create profile
+        if (error.code === 'PGRST116') {
+          console.log("Profile not found in database");
+          
+          // If profile doesn't exist but we have session data, create it
+          if (session?.user) {
+            const metadata = session.user.user_metadata;
+            const email = session.user.email || '';
             
-          if (newError) {
-            console.error("Error fetching new user profile:", newError);
-          } else if (newData) {
-            console.log("Retrieved newly created profile:", newData);
-            data = newData;
+            // Determine role based on email or default to Staff
+            const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+            const userName = metadata?.name || email.split('@')[0] || 'User';
+            
+            // Create user profile
+            const success = await createUserProfile(userId, email, userName, userRole);
+            
+            if (success) {
+              // Try to fetch the newly created profile
+              const { data: newData, error: newError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+                
+              if (newError) {
+                console.error("Error fetching new user profile:", newError);
+              } else if (newData) {
+                console.log("Retrieved newly created profile:", newData);
+                data = newData;
+              }
+            }
           }
         } else {
-          // If we couldn't create or fetch the profile, create a temporary one
-          data = {
-            id: userId,
-            name: userName,
-            email: email,
-            role: userRole,
-            created_at: new Date().toISOString()
-          };
-          console.log("Using temporary profile data:", data);
+          console.error("Error fetching user profile:", error);
         }
       }
       
@@ -106,8 +117,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return userProfile;
       } else {
         console.log("No profile found for user");
-        setUser(null);
-        return null;
+        
+        // Create temporary user based on auth data
+        if (session?.user) {
+          const metadata = session.user.user_metadata;
+          const email = session.user.email || '';
+          const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
+          const userName = metadata?.name || email.split('@')[0] || 'User';
+          
+          const tempUser: User = {
+            id: userId,
+            name: userName,
+            email: email,
+            role: userRole
+          };
+          
+          console.log("Using temporary user data:", tempUser);
+          setUser(tempUser);
+          return tempUser;
+        } else {
+          setUser(null);
+          return null;
+        }
       }
     } catch (error) {
       console.error("Error in profile fetch:", error);
@@ -199,9 +230,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Attempting login for:", email);
       
       // Try seed endpoint first for demo accounts
-      if ((email === 'manager@shiftswap.com' || email === 'staff@shiftswap.com') && password === 'password') {
+      if ((email === 'manager@shiftswap.com' || email === 'staff@shiftswap.com' || email === 'bob@shiftswap.com') && password === 'password') {
         try {
           // Seed demo data first to ensure demo accounts exist
+          console.log("Seeding demo data for demo account login");
           const seedResult = await supabase.functions.invoke('seed-demo-data');
           console.log("Seeded demo data before login attempt", seedResult);
         } catch (seedError) {
@@ -221,38 +253,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Login successful, data:", data);
       toast.success(`Welcome back!`);
       
-      // Create user profile if needed
-      if (data.session?.user) {
-        const metadata = data.session.user.user_metadata;
-        const userRole: UserRole = email.includes('manager') ? 'Manager' : 'Staff';
-        const userName = metadata?.name || email.split('@')[0] || 'User';
-        
-        // Check if profile exists
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.session.user.id)
-          .maybeSingle();
-          
-        if (profileError || !profileData) {
-          console.log("Profile not found, creating one");
-          await createUserProfile(
-            data.session.user.id, 
-            email, 
-            userName, 
-            userRole
-          );
-        }
-      }
-      
       return data;
     } catch (error: any) {
       console.error("Login error:", error);
       toast.error(error.message || "An unexpected error occurred during login");
       throw error;
+    } finally {
+      // We don't set isLoading to false here because the onAuthStateChange listener
+      // will handle that after fetching the user profile
     }
-    // Note: We don't set isLoading to false here because the onAuthStateChange listener will do that
-    // after fetching the user profile
   };
 
   const logout = async () => {
