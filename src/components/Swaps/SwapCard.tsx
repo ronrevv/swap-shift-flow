@@ -72,6 +72,11 @@ const SwapCard: React.FC<SwapCardProps> = ({
       return;
     }
     
+    if (onApprove) {
+      onApprove();
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       await approveSwapRequest(swap.id);
@@ -91,7 +96,6 @@ const SwapCard: React.FC<SwapCardProps> = ({
       
       toast.success('Swap request approved successfully');
       if (refetch) refetch();
-      if (onApprove) onApprove();
     } catch (error) {
       console.error('Error approving swap request:', error);
       toast.error('Something went wrong. Please try again.');

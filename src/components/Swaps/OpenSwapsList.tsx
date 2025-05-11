@@ -12,6 +12,7 @@ import { ArrowLeftRight, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getOpenSwapRequests, getUserSwapHistory, volunteerForSwap } from '@/api/swapApi';
 import { getUserShifts } from '@/api/shiftsApi';
+import { createLogEntry } from '@/api/logsApi';
 
 const OpenSwapsList: React.FC = () => {
   const { user } = useAuth();
@@ -23,7 +24,8 @@ const OpenSwapsList: React.FC = () => {
   // Fetch open swap requests
   const { data: openSwapRequests, isLoading: isLoadingSwaps, error: swapsError, refetch: refetchSwaps } = useQuery({
     queryKey: ['openSwaps'],
-    queryFn: getOpenSwapRequests
+    queryFn: getOpenSwapRequests,
+    refetchInterval: 30000 // Refetch every 30 seconds
   });
   
   // Fetch user's swap history
@@ -49,6 +51,7 @@ const OpenSwapsList: React.FC = () => {
 
   const handleVolunteer = (swap: SwapRequest) => {
     setSelectedSwap(swap);
+    setSelectedVolunteerShift(null);
     setShowVolunteerDialog(true);
   };
   
@@ -66,6 +69,19 @@ const OpenSwapsList: React.FC = () => {
     
     try {
       await volunteerForSwap(selectedSwap.id, selectedVolunteerShift.id);
+      
+      // Log volunteering action
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: selectedSwap.id,
+        action: 'volunteered',
+        details: {
+          swapId: selectedSwap.id,
+          volunteerId: user.id,
+          volunteerName: user.name,
+          volunteerShiftId: selectedVolunteerShift.id
+        }
+      });
       
       toast.success("You've successfully volunteered for this shift! Awaiting manager approval.");
       
@@ -115,9 +131,9 @@ const OpenSwapsList: React.FC = () => {
     <div>
       <Tabs defaultValue="available" className="w-full">
         <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
-          <TabsTrigger value="available">Available Swaps</TabsTrigger>
-          <TabsTrigger value="my-requests">My Requests</TabsTrigger>
-          <TabsTrigger value="my-volunteers">My Volunteers</TabsTrigger>
+          <TabsTrigger value="available">Available ({availableSwaps.length})</TabsTrigger>
+          <TabsTrigger value="my-requests">My Requests ({myRequests.length})</TabsTrigger>
+          <TabsTrigger value="my-volunteers">My Volunteers ({myVolunteers.length})</TabsTrigger>
         </TabsList>
         
         <TabsContent value="available" className="mt-4">
@@ -257,6 +273,7 @@ const OpenSwapsList: React.FC = () => {
             <Button 
               onClick={confirmVolunteer} 
               disabled={isSubmitting || !selectedVolunteerShift}
+              variant="default"
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">

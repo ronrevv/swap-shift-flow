@@ -117,6 +117,18 @@ export async function volunteerForSwap(swapId: string, volunteerShiftId: string)
       throw error;
     }
     
+    // Log volunteering action
+    await createLogEntry({
+      entityType: 'swap_request',
+      entityId: swapId,
+      action: 'volunteered',
+      details: {
+        swapId: swapId,
+        volunteerId: userData.user.id,
+        volunteerShiftId: volunteerShiftId
+      }
+    });
+    
     return data;
   } catch (error) {
     console.error('Error volunteering for swap:', error);
@@ -139,8 +151,13 @@ export async function getPendingSwapRequests() {
         created_at,
         volunteer_id,
         volunteer_shift_id,
+        rejected_at,
+        rejection_reason,
+        approved_at,
+        manager_id,
         requesterProfile:profiles!requester_id(name),
         volunteerProfile:profiles!volunteer_id(name),
+        managerProfile:profiles!manager_id(name),
         shift:shifts!shift_id(id, date, start_time, end_time, employee_id),
         volunteerShift:shifts!volunteer_shift_id(id, date, start_time, end_time)
       `)
@@ -171,7 +188,12 @@ export async function getPendingSwapRequests() {
       volunteerShiftId: swap.volunteer_shift_id || undefined,
       volunteerShiftDate: swap.volunteerShift?.date || undefined,
       volunteerShiftStartTime: swap.volunteerShift ? format(parseISO(`1970-01-01T${swap.volunteerShift.start_time}`), 'h:mm a') : undefined,
-      volunteerShiftEndTime: swap.volunteerShift ? format(parseISO(`1970-01-01T${swap.volunteerShift.end_time}`), 'h:mm a') : undefined
+      volunteerShiftEndTime: swap.volunteerShift ? format(parseISO(`1970-01-01T${swap.volunteerShift.end_time}`), 'h:mm a') : undefined,
+      managerId: swap.manager_id || undefined,
+      managerName: swap.managerProfile?.name || undefined,
+      approvedAt: swap.approved_at || undefined,
+      rejectedAt: swap.rejected_at || undefined,
+      reason: swap.rejection_reason || undefined
     }));
   } catch (error) {
     console.error('Error fetching pending swap requests:', error);
@@ -302,6 +324,66 @@ export async function getUserSwapHistory() {
     }));
   } catch (error) {
     console.error('Error fetching user swap history:', error);
+    throw error;
+  }
+}
+
+// Get all swap requests (for managers)
+export async function getAllSwapRequests() {
+  try {
+    const { data, error } = await supabase
+      .from('swap_requests')
+      .select(`
+        id,
+        requester_id,
+        shift_id,
+        note,
+        status,
+        created_at,
+        volunteer_id,
+        volunteer_shift_id,
+        manager_id,
+        approved_at,
+        rejected_at,
+        rejection_reason,
+        requesterProfile:profiles!requester_id (name),
+        volunteerProfile:profiles!volunteer_id (name),
+        managerProfile:profiles!manager_id (name),
+        shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
+        volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Format the data to match the SwapRequest type
+    return data.map(swap => ({
+      id: swap.id,
+      shiftId: swap.shift_id,
+      requesterId: swap.requester_id,
+      requesterName: swap.requesterProfile?.name || '',
+      note: swap.note || undefined,
+      date: swap.shift?.date || '',
+      startTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.start_time}`), 'h:mm a') : '',
+      endTime: swap.shift ? format(parseISO(`1970-01-01T${swap.shift.end_time}`), 'h:mm a') : '',
+      status: swap.status,
+      createdAt: swap.created_at,
+      volunteerId: swap.volunteer_id || undefined,
+      volunteerName: swap.volunteerProfile?.name || undefined,
+      volunteerShiftId: swap.volunteer_shift_id || undefined,
+      volunteerShiftDate: swap.volunteerShift?.date || undefined,
+      volunteerShiftStartTime: swap.volunteerShift ? format(parseISO(`1970-01-01T${swap.volunteerShift.start_time}`), 'h:mm a') : undefined,
+      volunteerShiftEndTime: swap.volunteerShift ? format(parseISO(`1970-01-01T${swap.volunteerShift.end_time}`), 'h:mm a') : undefined,
+      managerId: swap.manager_id || undefined,
+      managerName: swap.managerProfile?.name || undefined,
+      approvedAt: swap.approved_at || undefined,
+      rejectedAt: swap.rejected_at || undefined,
+      reason: swap.rejection_reason || undefined
+    }));
+  } catch (error) {
+    console.error('Error fetching all swap requests:', error);
     throw error;
   }
 }

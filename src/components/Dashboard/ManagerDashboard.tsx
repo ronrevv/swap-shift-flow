@@ -1,10 +1,11 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, ArrowLeftRight, CheckSquare, X, Users, FileText, PieChart } from 'lucide-react';
+import { Calendar, ArrowLeftRight, CheckSquare, X, Users, FileText, PieChart, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { getPendingSwapRequests } from '@/api/swapApi';
+import { getPendingSwapRequests, getAllSwapRequests } from '@/api/swapApi';
 import { 
   BarChart,
   Bar,
@@ -15,32 +16,12 @@ import {
   ResponsiveContainer,
   PieChart as RPieChart,
   Pie,
-  Cell
+  Cell,
+  Legend
 } from 'recharts';
-
-// Mock data for the dashboard
-const mockApprovalData = [
-  { name: 'Pending', value: 4, color: '#f59e0b' },
-  { name: 'Approved', value: 8, color: '#10b981' },
-  { name: 'Rejected', value: 2, color: '#ef4444' },
-];
-
-const mockSwapsByDay = [
-  { name: 'Mon', value: 3 },
-  { name: 'Tue', value: 2 },
-  { name: 'Wed', value: 5 },
-  { name: 'Thu', value: 4 },
-  { name: 'Fri', value: 7 },
-  { name: 'Sat', value: 2 },
-  { name: 'Sun', value: 1 },
-];
-
-const mockCounts = {
-  totalEmployees: 12,
-  pendingApprovals: 4,
-  totalShifts: 35,
-  swapRate: '15%'
-};
+import { Button } from '@/components/ui/button';
+import { exportLogsAsCsv } from '@/api/logsApi';
+import { toast } from '@/components/ui/sonner';
 
 const DashboardCard: React.FC<{
   title: string;
@@ -72,25 +53,96 @@ const ManagerDashboard: React.FC = () => {
   const { user } = useAuth();
   
   // Fetch pending swap requests for the dashboard
-  const { data: pendingSwaps, isLoading } = useQuery({
+  const { data: pendingSwaps, isLoading: isPendingLoading } = useQuery({
     queryKey: ['dashboardPendingSwaps'],
     queryFn: getPendingSwapRequests,
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: true
   });
   
+  // Fetch all swap requests for the analytics
+  const { data: allSwaps, isLoading: isAllSwapsLoading } = useQuery({
+    queryKey: ['dashboardAllSwaps'],
+    queryFn: getAllSwapRequests,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  
   const pendingCount = pendingSwaps?.length || 0;
+  
+  // Calculate approval data for the chart
+  const approvedCount = allSwaps?.filter(swap => swap.status === 'Approved').length || 0;
+  const rejectedCount = allSwaps?.filter(swap => swap.status === 'Rejected').length || 0;
+  const openCount = allSwaps?.filter(swap => swap.status === 'Open').length || 0;
+  
+  const approvalData = [
+    { name: 'Pending', value: pendingCount, color: '#f59e0b' },
+    { name: 'Approved', value: approvedCount, color: '#10b981' },
+    { name: 'Rejected', value: rejectedCount, color: '#ef4444' },
+    { name: 'Open', value: openCount, color: '#3b82f6' }
+  ];
+  
+  // Group swaps by day of week for the chart
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  const swapsByDay = dayNames.map(day => ({
+    name: day,
+    value: 0
+  }));
+  
+  if (allSwaps) {
+    allSwaps.forEach(swap => {
+      try {
+        const date = new Date(swap.date);
+        const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        swapsByDay[dayIndex].value += 1;
+      } catch (error) {
+        console.error('Error parsing date:', error);
+      }
+    });
+  }
+  
+  // Calculate summary counts
+  const totalEmployees = 12; // This would ideally come from an API
+  const totalSwaps = allSwaps?.length || 0;
+  const totalShifts = 35; // This would ideally come from an API
+  const swapRate = totalShifts > 0 ? Math.round((totalSwaps / totalShifts) * 100) + '%' : '0%';
+  
+  // Download logs handler
+  const handleDownloadLogs = async () => {
+    try {
+      const csvContent = await exportLogsAsCsv();
+      
+      // Create a Blob and download link
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('hidden', '');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `swap_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      toast.success('Logs exported successfully!');
+    } catch (error) {
+      console.error('Error exporting logs:', error);
+      toast.error('Failed to export logs. Please try again.');
+    }
+  };
   
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Manager Dashboard</h2>
+        <Button variant="outline" onClick={handleDownloadLogs} className="gap-2">
+          <Download className="h-4 w-4" /> Export Logs
+        </Button>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           title="Total Staff"
-          value={mockCounts.totalEmployees}
+          value={totalEmployees}
           description="Active employees"
           icon={<Users className="h-4 w-4 text-white" />}
           to="/approvals"
@@ -106,15 +158,15 @@ const ManagerDashboard: React.FC = () => {
         />
         <DashboardCard
           title="Total Shifts"
-          value={mockCounts.totalShifts}
+          value={totalShifts}
           description="This week"
           icon={<Calendar className="h-4 w-4 text-white" />}
-          to="/history"
+          to="/shifts"
           color="bg-green-500"
         />
         <DashboardCard
           title="Swap Rate"
-          value={mockCounts.swapRate}
+          value={swapRate}
           description="Shifts being swapped"
           icon={<ArrowLeftRight className="h-4 w-4 text-white" />}
           to="/history"
@@ -133,7 +185,7 @@ const ManagerDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {isLoading ? (
+              {isPendingLoading ? (
                 <div className="py-2 text-center text-muted-foreground">Loading approvals...</div>
               ) : pendingSwaps && pendingSwaps.length > 0 ? (
                 <>
@@ -182,7 +234,7 @@ const ManagerDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <RPieChart>
                   <Pie
-                    data={mockApprovalData}
+                    data={approvalData.filter(item => item.value > 0)}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -191,11 +243,12 @@ const ManagerDashboard: React.FC = () => {
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {mockApprovalData.map((entry, index) => (
+                    {approvalData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip />
+                  <Legend />
                 </RPieChart>
               </ResponsiveContainer>
             </div>
@@ -211,7 +264,7 @@ const ManagerDashboard: React.FC = () => {
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockSwapsByDay}>
+              <BarChart data={swapsByDay}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis allowDecimals={false} />

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { SwapRequest } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeftRight, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
+import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest, getAllSwapRequests } from '@/api/swapApi';
 import { createLogEntry } from '@/api/logsApi';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,16 +22,27 @@ const ApprovalList: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Fetch pending swap requests
-  const { data: pendingSwaps, isLoading, error, refetch } = useQuery({
+  const { data: pendingSwaps, isLoading: pendingLoading, error: pendingError, refetch: refetchPending } = useQuery({
     queryKey: ['pendingSwaps'],
-    queryFn: getPendingSwapRequests
+    queryFn: getPendingSwapRequests,
+    refetchInterval: 30000 // Refetch every 30 seconds
   });
   
-  // Use a separate state for completed swaps
-  const [completedSwaps, setCompletedSwaps] = useState<SwapRequest[]>([]);
+  // Fetch completed swaps (approved or rejected)
+  const { data: allSwaps, isLoading: allLoading, error: allError } = useQuery({
+    queryKey: ['allSwaps'],
+    queryFn: getAllSwapRequests
+  });
+  
+  // Filter completed swaps (approved or rejected)
+  const completedSwaps = allSwaps?.filter(swap => 
+    swap.status === 'Approved' || swap.status === 'Rejected'
+  ) || [];
   
   // Debug information
   console.log("Pending swaps:", pendingSwaps);
+  console.log("All swaps:", allSwaps);
+  console.log("Completed swaps:", completedSwaps);
   
   const handleApprove = (swap: SwapRequest) => {
     setSelectedSwap(swap);
@@ -58,19 +70,14 @@ const ApprovalList: React.FC = () => {
         details: {
           swapId: selectedSwap.id,
           requester: selectedSwap.requesterName,
-          volunteer: selectedSwap.volunteerName
+          volunteer: selectedSwap.volunteerName,
+          managerId: user.id,
+          managerName: user.name
         }
       });
       
-      // Update the completed swaps list
-      setCompletedSwaps(prev => [{
-        ...selectedSwap,
-        status: 'Approved',
-        approvedAt: new Date().toISOString()
-      }, ...prev]);
-      
       toast.success('Shift swap approved successfully!');
-      refetch();
+      refetchPending();
     } catch (error) {
       console.error('Error approving swap request:', error);
       toast.error('Failed to approve swap request. Please try again.');
@@ -102,20 +109,14 @@ const ApprovalList: React.FC = () => {
           swapId: selectedSwap.id,
           reason: rejectionReason,
           requester: selectedSwap.requesterName,
-          volunteer: selectedSwap.volunteerName
+          volunteer: selectedSwap.volunteerName,
+          managerId: user.id,
+          managerName: user.name
         }
       });
       
-      // Update the completed swaps list
-      setCompletedSwaps(prev => [{
-        ...selectedSwap,
-        status: 'Rejected',
-        rejectedAt: new Date().toISOString(),
-        reason: rejectionReason
-      }, ...prev]);
-      
       toast.success('Shift swap rejected with reason.');
-      refetch();
+      refetchPending();
     } catch (error) {
       console.error('Error rejecting swap request:', error);
       toast.error('Failed to reject swap request. Please try again.');
@@ -126,6 +127,9 @@ const ApprovalList: React.FC = () => {
       setIsProcessing(false);
     }
   };
+  
+  const isLoading = pendingLoading || allLoading;
+  const error = pendingError || allError;
   
   if (isLoading) {
     return (
@@ -151,8 +155,8 @@ const ApprovalList: React.FC = () => {
       
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="grid grid-cols-2 w-full md:w-[300px]">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({pendingSwaps?.length || 0})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedSwaps?.length || 0})</TabsTrigger>
         </TabsList>
         
         <TabsContent value="pending" className="mt-4">
@@ -175,7 +179,7 @@ const ApprovalList: React.FC = () => {
                   onApprove={() => handleApprove(swap)}
                   onReject={() => handleReject(swap)}
                   isManagerView={true}
-                  refetch={refetch}
+                  refetch={refetchPending}
                 />
               ))}
             </div>
@@ -190,7 +194,7 @@ const ApprovalList: React.FC = () => {
               </div>
               <h3 className="font-medium text-lg">No completed approvals</h3>
               <p className="text-muted-foreground mt-1">
-                You haven't approved or rejected any shift swaps yet during this session.
+                There are no approved or rejected shift swaps yet.
               </p>
             </div>
           ) : (
