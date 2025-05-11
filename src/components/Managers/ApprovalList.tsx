@@ -6,188 +6,20 @@ import SwapCard from '../Swaps/SwapCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
-import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeftRight, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
 import { createLogEntry } from '@/api/logsApi';
-
-interface ApprovalDialogProps {
-  swap: SwapRequest;
-  isOpen: boolean;
-  onClose: () => void;
-  onApprove: () => void;
-}
-
-interface RejectionDialogProps {
-  swap: SwapRequest;
-  isOpen: boolean;
-  onClose: () => void;
-  onReject: (reason: string) => void;
-}
-
-// Dialog component for approving a swap
-const ApprovalDialog: React.FC<ApprovalDialogProps> = ({ swap, isOpen, onClose, onApprove }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const handleApprove = async () => {
-    setIsSubmitting(true);
-    // Mock API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    onApprove();
-  };
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Approve Shift Swap</DialogTitle>
-          <DialogDescription>
-            Please confirm that you want to approve this shift swap.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="py-4">
-          <div className="rounded-md border p-4 mb-4">
-            <div className="font-medium mb-2">Swap Details:</div>
-            <div className="text-sm">
-              <div className="mb-3">
-                <p><span className="font-medium">Original Shift:</span></p>
-                <p className="ml-4">
-                  <span className="font-medium">Employee:</span> {swap.requesterName}<br />
-                  <span className="font-medium">Date:</span> {swap.date}<br />
-                  <span className="font-medium">Time:</span> {swap.startTime} - {swap.endTime}
-                </p>
-              </div>
-              <div className="mb-3">
-                <p><span className="font-medium">Volunteer Shift:</span></p>
-                <p className="ml-4">
-                  <span className="font-medium">Employee:</span> {swap.volunteerName}<br />
-                  <span className="font-medium">Date:</span> {swap.volunteerShiftDate}<br />
-                  <span className="font-medium">Time:</span> {swap.volunteerShiftStartTime} - {swap.volunteerShiftEndTime}
-                </p>
-              </div>
-              {swap.note && (
-                <div className="mt-3">
-                  <p><span className="font-medium">Request Note:</span></p>
-                  <p className="ml-4 italic text-muted-foreground">"{swap.note}"</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <p className="text-sm text-muted-foreground mb-4">
-            By approving this swap, both employees will be notified and their schedules will be updated accordingly.
-          </p>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleApprove} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
-                <span>Approving...</span>
-              </span>
-            ) : (
-              'Approve Swap'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Dialog component for rejecting a swap
-const RejectionDialog: React.FC<RejectionDialogProps> = ({ swap, isOpen, onClose, onReject }) => {
-  const [reason, setReason] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const handleReject = async () => {
-    if (!reason.trim()) {
-      toast.error('Please provide a reason for rejection');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    onReject(reason);
-  };
-  
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Reject Shift Swap</DialogTitle>
-          <DialogDescription>
-            Please provide a reason for rejecting this shift swap.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="py-4">
-          <div className="rounded-md border p-4 mb-4">
-            <div className="font-medium mb-2">Swap Details:</div>
-            <div className="text-sm">
-              <div className="mb-2">
-                <p><span className="font-medium">Employee:</span> {swap.requesterName}</p>
-                <p><span className="font-medium">Date:</span> {swap.date}</p>
-                <p><span className="font-medium">Time:</span> {swap.startTime} - {swap.endTime}</p>
-              </div>
-              <div className="mb-2">
-                <p><span className="font-medium">Volunteer:</span> {swap.volunteerName}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-2 mb-4">
-            <label htmlFor="reason" className="block text-sm font-medium">
-              Reason for Rejection
-            </label>
-            <Textarea
-              id="reason"
-              placeholder="Provide a reason why this swap is being rejected..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="min-h-[100px] w-full"
-            />
-            <p className="text-xs text-muted-foreground">
-              This reason will be shared with both employees.
-            </p>
-          </div>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleReject} 
-            disabled={isSubmitting || !reason.trim()}
-          >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
-                <span>Rejecting...</span>
-              </span>
-            ) : (
-              'Reject Swap'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import { useAuth } from '@/contexts/AuthContext';
 
 const ApprovalList: React.FC = () => {
+  const { user } = useAuth();
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Fetch pending swap requests
   const { data: pendingSwaps, isLoading, error, refetch } = useQuery({
@@ -197,6 +29,9 @@ const ApprovalList: React.FC = () => {
   
   // Use a separate state for completed swaps
   const [completedSwaps, setCompletedSwaps] = useState<SwapRequest[]>([]);
+  
+  // Debug information
+  console.log("Pending swaps:", pendingSwaps);
   
   const handleApprove = (swap: SwapRequest) => {
     setSelectedSwap(swap);
@@ -209,7 +44,9 @@ const ApprovalList: React.FC = () => {
   };
   
   const confirmApprove = async () => {
-    if (!selectedSwap) return;
+    if (!selectedSwap || !user) return;
+    
+    setIsProcessing(true);
     
     try {
       await approveSwapRequest(selectedSwap.id);
@@ -241,14 +78,21 @@ const ApprovalList: React.FC = () => {
     } finally {
       setShowApprovalDialog(false);
       setSelectedSwap(null);
+      setIsProcessing(false);
     }
   };
   
-  const confirmReject = async (reason: string) => {
-    if (!selectedSwap) return;
+  const confirmReject = async () => {
+    if (!selectedSwap || !user) return;
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    
+    setIsProcessing(true);
     
     try {
-      await rejectSwapRequest(selectedSwap.id, reason);
+      await rejectSwapRequest(selectedSwap.id, rejectionReason);
       
       // Log the rejection
       await createLogEntry({
@@ -257,7 +101,7 @@ const ApprovalList: React.FC = () => {
         action: 'rejected',
         details: {
           swapId: selectedSwap.id,
-          reason,
+          reason: rejectionReason,
           requester: selectedSwap.requesterName,
           volunteer: selectedSwap.volunteerName
         }
@@ -268,7 +112,7 @@ const ApprovalList: React.FC = () => {
         ...selectedSwap,
         status: 'Rejected',
         rejectedAt: new Date().toISOString(),
-        reason
+        reason: rejectionReason
       }, ...prev]);
       
       toast.success('Shift swap rejected with reason.');
@@ -279,6 +123,8 @@ const ApprovalList: React.FC = () => {
     } finally {
       setShowRejectionDialog(false);
       setSelectedSwap(null);
+      setRejectionReason('');
+      setIsProcessing(false);
     }
   };
   
@@ -345,14 +191,14 @@ const ApprovalList: React.FC = () => {
               </div>
               <h3 className="font-medium text-lg">No completed approvals</h3>
               <p className="text-muted-foreground mt-1">
-                You haven't approved or rejected any shift swaps yet.
+                You haven't approved or rejected any shift swaps yet during this session.
               </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               {completedSwaps.map((swap) => (
                 <SwapCard
-                  key={swap.id}
+                  key={`${swap.id}-${swap.status}`}
                   swap={swap}
                   isManagerView={true}
                 />
@@ -363,24 +209,137 @@ const ApprovalList: React.FC = () => {
       </Tabs>
       
       {/* Approval Dialog */}
-      {selectedSwap && (
-        <ApprovalDialog
-          swap={selectedSwap}
-          isOpen={showApprovalDialog}
-          onClose={() => setShowApprovalDialog(false)}
-          onApprove={confirmApprove}
-        />
-      )}
+      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Approve Shift Swap</DialogTitle>
+            <DialogDescription>
+              Please confirm that you want to approve this shift swap.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSwap && (
+            <div className="py-4">
+              <div className="rounded-md border p-4 mb-4">
+                <div className="font-medium mb-2">Swap Details:</div>
+                <div className="text-sm">
+                  <div className="mb-3">
+                    <p><span className="font-medium">Original Shift:</span></p>
+                    <p className="ml-4">
+                      <span className="font-medium">Employee:</span> {selectedSwap.requesterName}<br />
+                      <span className="font-medium">Date:</span> {selectedSwap.date}<br />
+                      <span className="font-medium">Time:</span> {selectedSwap.startTime} - {selectedSwap.endTime}
+                    </p>
+                  </div>
+                  <div className="mb-3">
+                    <p><span className="font-medium">Volunteer Shift:</span></p>
+                    <p className="ml-4">
+                      <span className="font-medium">Employee:</span> {selectedSwap.volunteerName}<br />
+                      <span className="font-medium">Date:</span> {selectedSwap.volunteerShiftDate}<br />
+                      <span className="font-medium">Time:</span> {selectedSwap.volunteerShiftStartTime} - {selectedSwap.volunteerShiftEndTime}
+                    </p>
+                  </div>
+                  {selectedSwap.note && (
+                    <div className="mt-3">
+                      <p><span className="font-medium">Request Note:</span></p>
+                      <p className="ml-4 italic text-muted-foreground">"{selectedSwap.note}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <p className="text-sm text-muted-foreground mb-4">
+                By approving this swap, both employees will be notified and their schedules will be updated accordingly.
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowApprovalDialog(false)} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button onClick={confirmApprove} disabled={isProcessing}>
+              {isProcessing ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
+                  <span>Approving...</span>
+                </span>
+              ) : (
+                'Approve Swap'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Rejection Dialog */}
-      {selectedSwap && (
-        <RejectionDialog
-          swap={selectedSwap}
-          isOpen={showRejectionDialog}
-          onClose={() => setShowRejectionDialog(false)}
-          onReject={confirmReject}
-        />
-      )}
+      <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Reject Shift Swap</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this shift swap.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSwap && (
+            <div className="py-4">
+              <div className="rounded-md border p-4 mb-4">
+                <div className="font-medium mb-2">Swap Details:</div>
+                <div className="text-sm">
+                  <div className="mb-2">
+                    <p><span className="font-medium">Employee:</span> {selectedSwap.requesterName}</p>
+                    <p><span className="font-medium">Date:</span> {selectedSwap.date}</p>
+                    <p><span className="font-medium">Time:</span> {selectedSwap.startTime} - {selectedSwap.endTime}</p>
+                  </div>
+                  <div className="mb-2">
+                    <p><span className="font-medium">Volunteer:</span> {selectedSwap.volunteerName}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2 mb-4">
+                <label htmlFor="reason" className="block text-sm font-medium">
+                  Reason for Rejection
+                </label>
+                <Textarea
+                  id="reason"
+                  placeholder="Provide a reason why this swap is being rejected..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="min-h-[100px] w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This reason will be shared with both employees.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => {
+              setShowRejectionDialog(false);
+              setRejectionReason('');
+            }} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmReject} 
+              disabled={isProcessing || !rejectionReason.trim()}
+            >
+              {isProcessing ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
+                  <span>Rejecting...</span>
+                </span>
+              ) : (
+                'Reject Swap'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

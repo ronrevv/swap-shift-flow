@@ -23,20 +23,20 @@ const OpenSwapsList: React.FC = () => {
   // Fetch open swap requests
   const { data: openSwapRequests, isLoading: isLoadingSwaps, error: swapsError, refetch: refetchSwaps } = useQuery({
     queryKey: ['openSwaps'],
-    queryFn: getOpenSwapRequests,
+    queryFn: getOpenSwapRequests
   });
   
   // Fetch user's swap history
   const { data: swapHistory, isLoading: isLoadingHistory, error: historyError, refetch: refetchHistory } = useQuery({
     queryKey: ['swapHistory', user?.id],
-    queryFn: getUserSwapHistory,
+    queryFn: () => getUserSwapHistory(),
     enabled: !!user
   });
   
   // Fetch user's shifts for volunteering
   const { data: userShifts, isLoading: isLoadingShifts } = useQuery({
     queryKey: ['shifts', user?.id],
-    queryFn: getUserShifts,
+    queryFn: () => getUserShifts(),
     enabled: !!user
   });
   
@@ -103,6 +103,13 @@ const OpenSwapsList: React.FC = () => {
       </div>
     );
   }
+  
+  // Debug information
+  console.log("Open Swaps:", openSwapRequests);
+  console.log("Swap History:", swapHistory);
+  console.log("My Requests:", myRequests);
+  console.log("My Volunteers:", myVolunteers);
+  console.log("Available Swaps:", availableSwaps);
   
   return (
     <div>

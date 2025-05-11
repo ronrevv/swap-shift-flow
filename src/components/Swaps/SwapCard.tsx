@@ -40,16 +40,18 @@ const SwapCard: React.FC<SwapCardProps> = ({
   // Format the date
   const formatDate = (dateString: string) => {
     try {
+      if (!dateString) return 'N/A';
       const date = parseISO(dateString);
       return format(date, 'EEE, MMM d');
     } catch (error) {
-      return dateString;
+      return dateString || 'N/A';
     }
   };
   
   // Get time since request was created
   const getTimeSince = (dateString: string) => {
     try {
+      if (!dateString) return 'some time ago';
       return formatDistanceToNow(parseISO(dateString), { addSuffix: true });
     } catch (error) {
       return 'some time ago';
@@ -104,6 +106,11 @@ const SwapCard: React.FC<SwapCardProps> = ({
       return;
     }
     
+    if (onReject) {
+      onReject();
+      return;
+    }
+    
     setIsProcessing(true);
     try {
       const reason = prompt('Please provide a reason for rejection (optional):');
@@ -126,7 +133,6 @@ const SwapCard: React.FC<SwapCardProps> = ({
       
       toast.success('Swap request rejected');
       if (refetch) refetch();
-      if (onReject) onReject();
     } catch (error) {
       console.error('Error rejecting swap request:', error);
       toast.error('Something went wrong. Please try again.');
@@ -136,19 +142,19 @@ const SwapCard: React.FC<SwapCardProps> = ({
   };
   
   const getStatusBadge = () => {
-    if (isOpen) return <span className="approval-badge approval-badge-pending">Available</span>;
-    if (isPending) return <span className="approval-badge approval-badge-pending">Pending Approval</span>;
-    if (isApproved) return <span className="approval-badge approval-badge-approved">Approved</span>;
-    if (isRejected) return <span className="approval-badge approval-badge-rejected">Rejected</span>;
+    if (isOpen) return <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">Available</span>;
+    if (isPending) return <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full font-medium">Pending Approval</span>;
+    if (isApproved) return <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">Approved</span>;
+    if (isRejected) return <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-medium">Rejected</span>;
     return null;
   };
   
   return (
-    <Card className={`swap-card ${isRequester ? 'border-l-blue-500' : ''}`}>
+    <Card className={`swap-card ${isRequester ? 'border-l-blue-500 border-l-4' : ''}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center">
-            <div className="p-2 mr-3 bg-swap bg-opacity-10 rounded-md text-swap">
+            <div className="p-2 mr-3 bg-blue-100 rounded-md text-blue-700">
               <ArrowLeftRight className="h-5 w-5" />
             </div>
             <div>
@@ -206,7 +212,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
         <CardFooter className="px-4 pt-0 pb-4">
           <Button 
             variant="outline" 
-            className="w-full text-swap hover:bg-swap hover:text-swap-foreground"
+            className="w-full text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-blue-200"
             onClick={handleVolunteer}
             disabled={isProcessing}
           >
@@ -219,7 +225,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
         <CardFooter className="px-4 pt-0 pb-4 flex gap-2">
           <Button 
             variant="outline" 
-            className="w-full text-approval hover:bg-approval hover:text-approval-foreground flex items-center gap-1"
+            className="w-full text-green-600 hover:bg-green-50 border-green-200 hover:text-green-700 flex items-center gap-1"
             onClick={handleApprove}
             disabled={isProcessing}
           >
@@ -228,7 +234,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
           </Button>
           <Button 
             variant="outline" 
-            className="w-full text-rejection hover:bg-rejection hover:text-rejection-foreground flex items-center gap-1"
+            className="w-full text-red-600 hover:bg-red-50 border-red-200 hover:text-red-700 flex items-center gap-1"
             onClick={handleReject}
             disabled={isProcessing}
           >
