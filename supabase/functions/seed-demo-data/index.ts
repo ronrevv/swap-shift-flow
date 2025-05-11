@@ -22,15 +22,32 @@ Deno.serve(async (req) => {
   }
   
   try {
+    console.log("Starting seed-demo-data function");
+    
     // Create a Supabase client with the service role key for admin privileges
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables");
+      return new Response(JSON.stringify({
+        error: 'Server configuration error: Missing required environment variables'
+      }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      });
+    }
+    
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceRoleKey,
       { 
         auth: { persistSession: false },
         global: { headers: { 'X-Client-Info': 'seed-demo-data' } }
       }
     );
+    
+    console.log("Checking for existing users");
     
     // Check for existing users first
     const { data: existingUsers, error: existingUsersError } = await supabaseAdmin
@@ -39,6 +56,12 @@ Deno.serve(async (req) => {
       
     if (existingUsersError) {
       console.error("Error checking existing users:", existingUsersError);
+      return new Response(JSON.stringify({
+        error: `Error checking existing users: ${existingUsersError.message}`
+      }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      });
     }
       
     if (existingUsers && existingUsers.length > 0) {
@@ -81,6 +104,8 @@ Deno.serve(async (req) => {
     // Create users
     for (const user of demoUsers) {
       try {
+        console.log(`Creating user ${user.email}`);
+        
         // Create the auth user first
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: user.email,
@@ -93,10 +118,17 @@ Deno.serve(async (req) => {
         
         if (authError) {
           console.error(`Error creating user ${user.email}:`, authError);
+          // Don't stop the whole process for one user error
+          continue;
+        }
+        
+        if (!authUser || !authUser.user || !authUser.user.id) {
+          console.error(`Failed to create user ${user.email}: No user ID returned`);
           continue;
         }
         
         userIds[user.email] = authUser.user.id;
+        console.log(`Created auth user for ${user.email} with ID ${authUser.user.id}`);
         
         // Create profile manually with service role client to bypass RLS
         const { error: profileError } = await supabaseAdmin
@@ -153,6 +185,7 @@ Deno.serve(async (req) => {
         
         // Insert shifts using admin client to bypass RLS
         if (shifts.length > 0) {
+          console.log(`Creating ${shifts.length} shifts for ${email}`);
           const { error: shiftsError } = await supabaseAdmin
             .from('shifts')
             .insert(shifts);
@@ -171,54 +204,58 @@ Deno.serve(async (req) => {
       const staffUser2 = userIds['bob@shiftswap.com'];
       
       // Get first shift for each staff member
-      const { data: staffShifts, error: shiftError } = await supabaseAdmin
-        .from('shifts')
-        .select('*')
-        .eq('employee_id', staffUser1)
-        .order('date', { ascending: true })
-        .limit(2);
-        
-      if (shiftError) {
-        console.error("Error fetching staff shifts:", shiftError);
-      }
-        
-      if (staffShifts && staffShifts.length > 0) {
-        // Create open swap request
-        const { error: openSwapError } = await supabaseAdmin
-          .from('swap_requests')
-          .insert({
-            shift_id: staffShifts[0].id,
-            requester_id: staffUser1,
-            status: 'Open',
-            note: 'I have a doctor appointment this day, can anyone take my shift?',
-          });
+      if (staffUser1) {
+        console.log("Creating swap requests");
+        const { data: staffShifts, error: shiftError } = await supabaseAdmin
+          .from('shifts')
+          .select('*')
+          .eq('employee_id', staffUser1)
+          .order('date', { ascending: true })
+          .limit(2);
           
-        if (openSwapError) {
-          console.error('Error creating open swap request:', openSwapError);
-        } else {
-          console.log('Created open swap request');
+        if (shiftError) {
+          console.error("Error fetching staff shifts:", shiftError);
         }
-        
-        // Create pending swap request
-        if (staffShifts.length > 1) {
-          const { error: pendingSwapError } = await supabaseAdmin
+          
+        if (staffShifts && staffShifts.length > 0) {
+          // Create open swap request
+          const { error: openSwapError } = await supabaseAdmin
             .from('swap_requests')
             .insert({
-              shift_id: staffShifts[1].id,
+              shift_id: staffShifts[0].id,
               requester_id: staffUser1,
-              status: 'Pending',
-              volunteer_id: staffUser2,
-              note: 'Family emergency, need this day off',
+              status: 'Open',
+              note: 'I have a doctor appointment this day, can anyone take my shift?',
             });
             
-          if (pendingSwapError) {
-            console.error('Error creating pending swap request:', pendingSwapError);
+          if (openSwapError) {
+            console.error('Error creating open swap request:', openSwapError);
           } else {
-            console.log('Created pending swap request');
+            console.log('Created open swap request');
+          }
+          
+          // Create pending swap request if we have enough shifts and staffUser2 exists
+          if (staffShifts.length > 1 && staffUser2) {
+            const { error: pendingSwapError } = await supabaseAdmin
+              .from('swap_requests')
+              .insert({
+                shift_id: staffShifts[1].id,
+                requester_id: staffUser1,
+                status: 'Pending',
+                volunteer_id: staffUser2,
+                note: 'Family emergency, need this day off',
+              });
+              
+            if (pendingSwapError) {
+              console.error('Error creating pending swap request:', pendingSwapError);
+            } else {
+              console.log('Created pending swap request');
+            }
           }
         }
       }
 
+      console.log("Seed data creation complete");
       return new Response(JSON.stringify({
         message: 'Demo data seeded successfully',
         users: Object.keys(userIds).length
@@ -227,18 +264,22 @@ Deno.serve(async (req) => {
         status: 200 
       });
     } else {
+      console.log("No users were created");
       return new Response(JSON.stringify({
         message: 'No users created',
         users: 0
       }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
+        status: 200 // Changed from 400 to 200 to prevent client errors
       });
     }
     
   } catch (error) {
     console.error('Error seeding demo data:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error occurred',
+      details: error.toString()
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     });

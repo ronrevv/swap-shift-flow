@@ -59,11 +59,11 @@ const Index = () => {
     try {
       const result = await seedDemoData();
       if (!result) {
-        setSeedError('There was a problem seeding demo data. Please try again.');
+        setSeedError('There was a problem seeding demo data. Please try again or check the console logs for detailed error information.');
       }
     } catch (error: any) {
       console.error("Error seeding data:", error);
-      setSeedError(error.message || 'Failed to seed demo data');
+      setSeedError(error.message || 'Failed to seed demo data. Check the console for more details.');
     } finally {
       setIsSeeding(false);
     }
@@ -110,6 +110,7 @@ const Index = () => {
 
         <div className="mt-4 text-center text-xs text-muted-foreground">
           <p>Having trouble logging in? Try clicking "Seed Demo Data" first, then use the demo accounts.</p>
+          <p className="mt-2">Demo accounts: manager@shiftswap.com or staff@shiftswap.com (password: password)</p>
         </div>
       </div>
     </div>

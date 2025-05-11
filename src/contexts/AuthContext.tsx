@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, UserRole, AuthContextType } from '@/types';
 import { toast } from "@/components/ui/sonner";
@@ -232,15 +231,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try seed endpoint first for demo accounts
       if ((email === 'manager@shiftswap.com' || email === 'staff@shiftswap.com' || email === 'bob@shiftswap.com') && password === 'password') {
         try {
-          // Seed demo data first to ensure demo accounts exist
+          // Seed demo data first to ensure demo accounts exist, but don't fail if this errors
           console.log("Seeding demo data for demo account login");
-          const seedResult = await supabase.functions.invoke('seed-demo-data');
+          const seedResult = await supabase.functions.invoke('seed-demo-data')
+            .catch(err => {
+              console.log("Note: Demo data seeding failed but continuing with login", err);
+              return { data: null, error: err };
+            });
           console.log("Seeded demo data before login attempt", seedResult);
         } catch (seedError) {
+          // Don't fail the login if seeding fails
           console.log("Note: Demo data seeding failed but continuing with login", seedError);
         }
       }
       
+      // Proceed with normal login regardless of seed result
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
