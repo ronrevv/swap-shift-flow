@@ -25,7 +25,8 @@ const ApprovalList: React.FC = () => {
   const { data: pendingSwaps, isLoading: pendingLoading, error: pendingError, refetch: refetchPending } = useQuery({
     queryKey: ['pendingSwaps'],
     queryFn: getPendingSwapRequests,
-    refetchInterval: 30000 // Refetch every 30 seconds
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true // Refetch when window regains focus
   });
   
   // Fetch completed swaps (approved or rejected)

@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { createSwapRequest } from '@/api/swapApi';
 
 interface SwapRequestFormProps {
   shift: Shift;
@@ -31,25 +31,13 @@ const SwapRequestForm: React.FC<SwapRequestFormProps> = ({ shift, onClose, onSuc
     setIsSubmitting(true);
     
     try {
-      // Create swap request in Supabase
-      const { data, error } = await supabase
-        .from('swap_requests')
-        .insert([
-          {
-            shift_id: shift.id,
-            requester_id: user.id,
-            note,
-            status: 'Open'
-          }
-        ])
-        .select()
-        .single();
+      // Create swap request using the API function
+      await createSwapRequest({
+        shiftId: shift.id,
+        note: note || undefined
+      });
       
-      if (error) {
-        console.error('Error creating swap request:', error);
-        toast.error('Failed to create swap request');
-        return;
-      }
+      toast.success('Swap request created successfully!');
       
       if (onSuccess) {
         onSuccess();
