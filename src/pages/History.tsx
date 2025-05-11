@@ -7,13 +7,26 @@ import { format, parseISO, subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, FileText, ArrowLeftRight, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, FileText, ArrowLeftRight, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/components/ui/sonner';
 import { getActivityLogs, exportLogsAsCsv, getEmployeesForFilter } from '@/api/logsApi';
 import { useQuery } from '@tanstack/react-query';
 import { Pagination } from '@/components/ui/pagination';
+import { 
+  Collapsible, 
+  CollapsibleContent, 
+  CollapsibleTrigger 
+} from "@/components/ui/collapsible";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const History = () => {
   const { user } = useAuth();
@@ -90,6 +103,120 @@ const History = () => {
       console.error('Error exporting CSV:', error);
       toast.error('Failed to export CSV. Please try again.');
     }
+  };
+  
+  // Format details for display
+  const formatDetails = (details: any): { formatted: React.ReactNode, hasDetails: boolean } => {
+    if (!details) return { formatted: null, hasDetails: false };
+    
+    try {
+      // For swap requests
+      if (details.swap_id) {
+        return { 
+          formatted: (
+            <Table className="mt-2">
+              <TableBody>
+                {details.old_status && details.new_status && (
+                  <TableRow>
+                    <TableCell className="font-medium">Status Change</TableCell>
+                    <TableCell>
+                      <span className="text-amber-600">{details.old_status}</span>
+                      {" → "}
+                      <span className="text-green-600">{details.new_status}</span>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {details.volunteer_id && (
+                  <TableRow>
+                    <TableCell className="font-medium">Volunteer</TableCell>
+                    <TableCell>{details.volunteer_id}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          ), 
+          hasDetails: true 
+        };
+      }
+      
+      // For shift changes
+      if (details.shift_id && details.changes) {
+        const changes = details.changes;
+        const hasChanges = 
+          (changes.date && (changes.date.old || changes.date.new)) || 
+          (changes.start_time && (changes.start_time.old || changes.start_time.new)) || 
+          (changes.end_time && (changes.end_time.old || changes.end_time.new));
+          
+        if (hasChanges) {
+          return {
+            formatted: (
+              <Table className="mt-2">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    <TableHead>Previous</TableHead>
+                    <TableHead>New</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {changes.date && (
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>{changes.date.old}</TableCell>
+                      <TableCell>{changes.date.new}</TableCell>
+                    </TableRow>
+                  )}
+                  {changes.start_time && (
+                    <TableRow>
+                      <TableCell>Start Time</TableCell>
+                      <TableCell>{changes.start_time.old}</TableCell>
+                      <TableCell>{changes.start_time.new}</TableCell>
+                    </TableRow>
+                  )}
+                  {changes.end_time && (
+                    <TableRow>
+                      <TableCell>End Time</TableCell>
+                      <TableCell>{changes.end_time.old}</TableCell>
+                      <TableCell>{changes.end_time.new}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ),
+            hasDetails: true
+          };
+        }
+      }
+      
+      // Simple key-value display for other types of details
+      if (typeof details === 'object' && Object.keys(details).length > 0) {
+        return {
+          formatted: (
+            <Table className="mt-2">
+              <TableBody>
+                {Object.entries(details).map(([key, value]) => (
+                  <TableRow key={key}>
+                    <TableCell className="font-medium">{key.replace(/_/g, ' ')}</TableCell>
+                    <TableCell>{String(value)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ),
+          hasDetails: true
+        };
+      }
+    } catch (e) {
+      console.error("Error formatting details:", e);
+    }
+    
+    // Fallback for any other case
+    return { 
+      formatted: <pre className="whitespace-pre-wrap font-mono text-xs overflow-auto max-h-24 p-2 bg-muted/20 rounded mt-2">
+        {JSON.stringify(details, null, 2)}
+      </pre>, 
+      hasDetails: true 
+    };
   };
   
   // Calculate statistics
@@ -258,39 +385,47 @@ const History = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {logs.map(log => (
-                <div key={log.id} className="px-4 py-3 hover:bg-muted/20">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{log.userName || 'System'}</span>
-                        <span className="px-2 py-0.5 text-xs rounded-full bg-muted">
-                          {log.action}
-                        </span>
-                      </div>
-                      
-                      <div className="text-sm text-muted-foreground mt-1">
-                        <span>{log.entityType}: {log.entityId}</span>
-                      </div>
-                      
-                      {log.details && (
-                        <div className="mt-2 text-sm bg-muted/20 p-2 rounded">
-                          <pre className="whitespace-pre-wrap font-mono text-xs overflow-auto max-h-24">
-                            {JSON.stringify(log.details, null, 2)}
-                          </pre>
+              {logs.map(log => {
+                const { formatted: formattedDetails, hasDetails } = formatDetails(log.details);
+                
+                return (
+                  <div key={log.id} className="px-4 py-3 hover:bg-muted/20">
+                    <div className="flex items-start justify-between">
+                      <div className="w-full">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{log.userName || 'System'}</span>
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-muted">
+                            {log.action}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="text-right text-sm">
-                      <div>{format(parseISO(log.createdAt), 'MMM d, yyyy')}</div>
-                      <div className="text-muted-foreground">
-                        {format(parseISO(log.createdAt), 'h:mm a')}
+                        
+                        <div className="text-sm text-muted-foreground mt-1">
+                          <span>{log.entityType}: {log.entityId}</span>
+                        </div>
+                        
+                        {hasDetails && (
+                          <Collapsible className="w-full mt-2">
+                            <CollapsibleTrigger className="flex items-center text-xs text-muted-foreground hover:text-primary transition-colors">
+                              <ChevronRight className="h-4 w-4 mr-1 transition-transform ui-expanded:rotate-90" />
+                              View details
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-2">
+                              {formattedDetails}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </div>
+                      
+                      <div className="text-right text-sm shrink-0">
+                        <div>{format(parseISO(log.createdAt), 'MMM d, yyyy')}</div>
+                        <div className="text-muted-foreground">
+                          {format(parseISO(log.createdAt), 'h:mm a')}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           
