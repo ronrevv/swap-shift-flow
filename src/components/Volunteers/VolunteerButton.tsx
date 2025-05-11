@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { volunteerForSwap } from '@/api/swapApi';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VolunteerButtonProps {
   swapId: string;
