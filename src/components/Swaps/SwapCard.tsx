@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SwapRequest } from '@/types';
@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeftRight, Check, X, Calendar } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
+import { createLogEntry } from '@/api/logsApi';
 
 interface SwapCardProps {
   swap: SwapRequest;
@@ -27,6 +28,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
   refetch
 }) => {
   const { user } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
   const isRequester = user?.id === swap.requesterId;
   const isVolunteer = user?.id === swap.volunteerId;
   const isManager = user?.role === 'Manager';
@@ -68,21 +70,22 @@ const SwapCard: React.FC<SwapCardProps> = ({
       return;
     }
     
+    setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('swap_requests')
-        .update({
-          status: 'Approved',
-          manager_id: user?.id,
-          approved_at: new Date().toISOString()
-        })
-        .eq('id', swap.id);
-        
-      if (error) {
-        console.error('Error approving swap request:', error);
-        toast.error('Failed to approve swap request');
-        return;
-      }
+      await approveSwapRequest(swap.id);
+      
+      // Log the approval
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: swap.id,
+        action: 'approved',
+        details: {
+          managerId: user?.id,
+          swapId: swap.id,
+          requester: swap.requesterName,
+          volunteer: swap.volunteerName
+        }
+      });
       
       toast.success('Swap request approved successfully');
       if (refetch) refetch();
@@ -90,6 +93,8 @@ const SwapCard: React.FC<SwapCardProps> = ({
     } catch (error) {
       console.error('Error approving swap request:', error);
       toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
   
@@ -99,24 +104,25 @@ const SwapCard: React.FC<SwapCardProps> = ({
       return;
     }
     
+    setIsProcessing(true);
     try {
       const reason = prompt('Please provide a reason for rejection (optional):');
       
-      const { error } = await supabase
-        .from('swap_requests')
-        .update({
-          status: 'Rejected',
-          manager_id: user?.id,
-          rejected_at: new Date().toISOString(),
-          rejection_reason: reason || null
-        })
-        .eq('id', swap.id);
-        
-      if (error) {
-        console.error('Error rejecting swap request:', error);
-        toast.error('Failed to reject swap request');
-        return;
-      }
+      await rejectSwapRequest(swap.id, reason || undefined);
+      
+      // Log the rejection
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: swap.id,
+        action: 'rejected',
+        details: {
+          managerId: user?.id,
+          swapId: swap.id,
+          reason: reason || null,
+          requester: swap.requesterName,
+          volunteer: swap.volunteerName
+        }
+      });
       
       toast.success('Swap request rejected');
       if (refetch) refetch();
@@ -124,6 +130,8 @@ const SwapCard: React.FC<SwapCardProps> = ({
     } catch (error) {
       console.error('Error rejecting swap request:', error);
       toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
   
@@ -200,6 +208,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
             variant="outline" 
             className="w-full text-swap hover:bg-swap hover:text-swap-foreground"
             onClick={handleVolunteer}
+            disabled={isProcessing}
           >
             Volunteer to Take Shift
           </Button>
@@ -212,6 +221,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
             variant="outline" 
             className="w-full text-approval hover:bg-approval hover:text-approval-foreground flex items-center gap-1"
             onClick={handleApprove}
+            disabled={isProcessing}
           >
             <Check className="h-4 w-4" />
             <span>Approve</span>
@@ -220,6 +230,7 @@ const SwapCard: React.FC<SwapCardProps> = ({
             variant="outline" 
             className="w-full text-rejection hover:bg-rejection hover:text-rejection-foreground flex items-center gap-1"
             onClick={handleReject}
+            disabled={isProcessing}
           >
             <X className="h-4 w-4" />
             <span>Reject</span>

@@ -9,7 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { format, parseISO, startOfWeek, addDays, isWithinInterval } from 'date-fns';
 import { Calendar } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { getUserShifts } from '@/api/shiftsApi';
 import { useQuery } from '@tanstack/react-query';
 
 const ShiftList: React.FC = () => {
@@ -17,42 +17,10 @@ const ShiftList: React.FC = () => {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   
-  // Fetch shifts from Supabase
+  // Fetch shifts using our API
   const { data: shifts, isLoading, error, refetch } = useQuery({
     queryKey: ['shifts', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('shifts')
-        .select(`
-          id,
-          employee_id,
-          date,
-          start_time,
-          end_time,
-          role,
-          profiles:employee_id (name)
-        `)
-        .eq('employee_id', user.id)
-        .order('date', { ascending: true });
-      
-      if (error) {
-        console.error('Error fetching shifts:', error);
-        toast.error('Failed to load shifts');
-        throw error;
-      }
-      
-      return data.map(shift => ({
-        id: shift.id,
-        employeeId: shift.employee_id,
-        employeeName: shift.profiles?.name || user.name,
-        date: shift.date,
-        startTime: format(parseISO(`1970-01-01T${shift.start_time}`), 'h:mm a'),
-        endTime: format(parseISO(`1970-01-01T${shift.end_time}`), 'h:mm a'),
-        role: shift.role
-      }));
-    },
+    queryFn: getUserShifts,
     enabled: !!user
   });
   

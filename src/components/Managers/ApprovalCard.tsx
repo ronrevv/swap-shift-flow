@@ -6,7 +6,8 @@ import { SwapRequest } from '@/types';
 import { Check, X, Calendar, ArrowLeftRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
+import { createLogEntry } from '@/api/logsApi';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ApprovalCardProps {
@@ -38,20 +39,20 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
   const handleApprove = async () => {
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('swap_requests')
-        .update({
-          status: 'Approved',
-          manager_id: user?.id,
-          approved_at: new Date().toISOString()
-        })
-        .eq('id', swap.id);
+      await approveSwapRequest(swap.id);
       
-      if (error) {
-        console.error('Error approving swap request:', error);
-        toast.error('Failed to approve swap request');
-        return;
-      }
+      // Log the approval
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: swap.id,
+        action: 'approved',
+        details: {
+          managerId: user?.id,
+          swapId: swap.id,
+          requester: swap.requesterName,
+          volunteer: swap.volunteerName
+        }
+      });
       
       toast.success('Swap request approved successfully');
       if (refetch) refetch();
@@ -69,21 +70,21 @@ const ApprovalCard: React.FC<ApprovalCardProps> = ({
     try {
       const reason = prompt('Please provide a reason for rejection (optional):');
       
-      const { error } = await supabase
-        .from('swap_requests')
-        .update({
-          status: 'Rejected',
-          manager_id: user?.id,
-          rejected_at: new Date().toISOString(),
-          rejection_reason: reason || null
-        })
-        .eq('id', swap.id);
+      await rejectSwapRequest(swap.id, reason || undefined);
       
-      if (error) {
-        console.error('Error rejecting swap request:', error);
-        toast.error('Failed to reject swap request');
-        return;
-      }
+      // Log the rejection
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: swap.id,
+        action: 'rejected',
+        details: {
+          managerId: user?.id,
+          swapId: swap.id,
+          reason: reason || null,
+          requester: swap.requesterName,
+          volunteer: swap.volunteerName
+        }
+      });
       
       toast.success('Swap request rejected');
       if (refetch) refetch();
