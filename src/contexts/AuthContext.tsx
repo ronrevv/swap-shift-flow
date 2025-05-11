@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, UserRole, AuthContextType } from '@/types';
 import { toast } from "@/components/ui/sonner";
@@ -139,11 +138,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         console.log("No profile found for user");
+        setUser(null);
       }
     } catch (error) {
       console.error("Error in profile fetch:", error);
     } finally {
+      console.log("Setting isLoading to false after profile fetch");
       setIsLoading(false);
+      // Make sure initialLoadComplete is also set
+      setInitialLoadComplete(true);
     }
   };
 

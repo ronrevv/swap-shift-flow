@@ -12,19 +12,27 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, initialLoadComplete } = useAuth();
+  const { isAuthenticated, isLoading, initialLoadComplete, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   // Effect to handle authentication redirects
   useEffect(() => {
+    console.log("Layout: Auth state:", { 
+      isAuthenticated, 
+      isLoading, 
+      initialLoadComplete, 
+      userExists: !!user 
+    });
+    
     if (initialLoadComplete && !isLoading && !isAuthenticated) {
       console.log("Layout: Not authenticated after load complete, redirecting to login");
       navigate("/", { replace: true });
     }
-  }, [isAuthenticated, isLoading, initialLoadComplete, navigate]);
+  }, [isAuthenticated, isLoading, initialLoadComplete, navigate, user]);
 
-  if (isLoading || !initialLoadComplete) {
+  // Show loading indicator while checking authentication
+  if (isLoading && !initialLoadComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -33,9 +41,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Redirect to login if not authenticated
+  if (initialLoadComplete && !isAuthenticated) {
     console.log("Layout: Not authenticated, redirecting to login");
     return <Navigate to="/" state={{ from: location }} replace />;
+  }
+  
+  // Show a different loading state when authenticated but still loading user data
+  if (isAuthenticated && !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Loading your profile...</p>
+      </div>
+    );
   }
 
   console.log("Layout: Authenticated, rendering dashboard");

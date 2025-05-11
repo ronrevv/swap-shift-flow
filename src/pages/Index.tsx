@@ -19,15 +19,17 @@ const Index = () => {
     // Update document title
     document.title = "ShiftSwap - Login";
     
-    // If authenticated, redirect to dashboard
+    console.log("Index page - Auth state:", { isAuthenticated, isLoading, initialLoadComplete });
+    
+    // Only redirect when we're sure about authentication state
     if (isAuthenticated && initialLoadComplete) {
       console.log("Index: User is authenticated, redirecting to dashboard");
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, initialLoadComplete, navigate]);
+  }, [isAuthenticated, initialLoadComplete, navigate, isLoading]);
   
   // Early return during authentication check to prevent flash of login screen
-  if (isLoading && !initialLoadComplete) {
+  if (isLoading || (isAuthenticated && !initialLoadComplete)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -36,7 +38,7 @@ const Index = () => {
     );
   }
   
-  // If logged in, redirect to dashboard
+  // If logged in and loading complete, redirect to dashboard
   if (isAuthenticated) {
     console.log("Index: User is authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;

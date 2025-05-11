@@ -23,7 +23,8 @@ const Dashboard = () => {
     });
   }, [isAuthenticated, isLoading, initialLoadComplete, user]);
   
-  if (isLoading || !initialLoadComplete) {
+  // Show loading state while checking auth
+  if (isLoading && !initialLoadComplete) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -32,11 +33,23 @@ const Dashboard = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Redirect to login if not authenticated and we've completed initial load
+  if (!isAuthenticated && initialLoadComplete) {
     console.log("Dashboard: Not authenticated, redirecting to login");
     return <Navigate to="/" replace />;
   }
   
+  // Show a loading state if we're authenticated but don't have user data yet
+  if (isAuthenticated && !user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Loading your profile...</p>
+      </div>
+    );
+  }
+  
+  // Render the appropriate dashboard based on user role
   console.log("Dashboard: Rendering dashboard for user role:", user?.role);
   return (
     <Layout>
