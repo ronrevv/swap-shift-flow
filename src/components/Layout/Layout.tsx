@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import Header from './Header';
 import AppSidebar from './Sidebar';
+import { Loader2 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,8 +17,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
