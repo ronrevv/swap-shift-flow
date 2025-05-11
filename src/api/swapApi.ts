@@ -21,11 +21,11 @@ export async function getOpenSwapRequests() {
         approved_at,
         rejected_at,
         rejection_reason,
-        requesterProfile:requester_id (name),
-        volunteerProfile:volunteer_id (name),
-        managerProfile:manager_id (name),
-        shift:shift_id (id, date, start_time, end_time, employee_id),
-        volunteerShift:volunteer_shift_id (id, date, start_time, end_time)
+        requesterProfile:profiles!requester_id (name),
+        volunteerProfile:profiles!volunteer_id (name),
+        managerProfile:profiles!manager_id (name),
+        shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
+        volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
       `)
       .eq('status', 'Open')
       .order('created_at', { ascending: false });
@@ -138,10 +138,10 @@ export async function getPendingSwapRequests() {
         created_at,
         volunteer_id,
         volunteer_shift_id,
-        requesterProfile:requester_id (name),
-        volunteerProfile:volunteer_id (name),
-        shift:shift_id (id, date, start_time, end_time, employee_id),
-        volunteerShift:volunteer_shift_id (id, date, start_time, end_time)
+        requesterProfile:profiles!requester_id (name),
+        volunteerProfile:profiles!volunteer_id (name),
+        shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
+        volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
       `)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false });
@@ -259,11 +259,11 @@ export async function getUserSwapHistory() {
         approved_at,
         rejected_at,
         rejection_reason,
-        requesterProfile:requester_id (name),
-        volunteerProfile:volunteer_id (name),
-        managerProfile:manager_id (name),
-        shift:shift_id (id, date, start_time, end_time, employee_id),
-        volunteerShift:volunteer_shift_id (id, date, start_time, end_time)
+        requesterProfile:profiles!requester_id (name),
+        volunteerProfile:profiles!volunteer_id (name),
+        managerProfile:profiles!manager_id (name),
+        shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
+        volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
       `)
       .or(`requester_id.eq.${userData.user.id},volunteer_id.eq.${userData.user.id}`)
       .order('created_at', { ascending: false });
