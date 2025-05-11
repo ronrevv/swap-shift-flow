@@ -127,6 +127,7 @@ export async function volunteerForSwap(swapId: string, volunteerShiftId: string)
 // Get pending swap requests (for managers)
 export async function getPendingSwapRequests() {
   try {
+    console.log('Fetching pending swap requests...');
     const { data, error } = await supabase
       .from('swap_requests')
       .select(`
@@ -138,17 +139,20 @@ export async function getPendingSwapRequests() {
         created_at,
         volunteer_id,
         volunteer_shift_id,
-        requesterProfile:profiles!requester_id (name),
-        volunteerProfile:profiles!volunteer_id (name),
-        shift:shifts!shift_id (id, date, start_time, end_time, employee_id),
-        volunteerShift:shifts!volunteer_shift_id (id, date, start_time, end_time)
+        requesterProfile:profiles!requester_id(name),
+        volunteerProfile:profiles!volunteer_id(name),
+        shift:shifts!shift_id(id, date, start_time, end_time, employee_id),
+        volunteerShift:shifts!volunteer_shift_id(id, date, start_time, end_time)
       `)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false });
     
     if (error) {
+      console.error('Error fetching pending swap requests:', error);
       throw error;
     }
+    
+    console.log('Pending swap requests data:', data);
     
     // Format the data to match the SwapRequest type
     return data.map(swap => ({

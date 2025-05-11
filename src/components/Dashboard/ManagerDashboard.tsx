@@ -1,9 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, ArrowLeftRight, CheckSquare, X, Users, FileText, PieChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { getPendingSwapRequests } from '@/api/swapApi';
 import { 
   BarChart,
   Bar,
@@ -69,7 +70,17 @@ const DashboardCard: React.FC<{
 
 const ManagerDashboard: React.FC = () => {
   const { user } = useAuth();
-
+  
+  // Fetch pending swap requests for the dashboard
+  const { data: pendingSwaps, isLoading } = useQuery({
+    queryKey: ['dashboardPendingSwaps'],
+    queryFn: getPendingSwapRequests,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true
+  });
+  
+  const pendingCount = pendingSwaps?.length || 0;
+  
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -87,7 +98,7 @@ const ManagerDashboard: React.FC = () => {
         />
         <DashboardCard
           title="Pending Approvals"
-          value={mockCounts.pendingApprovals}
+          value={pendingCount}
           description="Waiting for review"
           icon={<CheckSquare className="h-4 w-4 text-white" />}
           to="/approvals"
@@ -122,42 +133,38 @@ const ManagerDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[...Array(4)].map((_, i) => {
-                const date = new Date();
-                date.setDate(date.getDate() + i);
-                const formattedDate = date.toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric'
-                });
-                
-                const requesters = ['Jane Staff', 'Bob Staff', 'Alice Staff', 'Mark Staff'];
-                const volunteers = ['Tom Staff', 'Sarah Staff', 'Mike Staff', 'Lisa Staff'];
-                
-                return (
-                  <div key={i} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
-                    <div className="flex items-center">
-                      <div className="p-2 mr-3 bg-amber-100 rounded-md text-amber-700">
-                        <ArrowLeftRight className="h-5 w-5" />
+              {isLoading ? (
+                <div className="py-2 text-center text-muted-foreground">Loading approvals...</div>
+              ) : pendingSwaps && pendingSwaps.length > 0 ? (
+                <>
+                  {pendingSwaps.slice(0, 4).map((swap) => (
+                    <div key={swap.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
+                      <div className="flex items-center">
+                        <div className="p-2 mr-3 bg-amber-100 rounded-md text-amber-700">
+                          <ArrowLeftRight className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{swap.requesterName} → {swap.volunteerName}</h4>
+                          <p className="text-sm text-muted-foreground">{swap.date}, {swap.startTime} - {swap.endTime}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-medium">{requesters[i]} → {volunteers[i]}</h4>
-                        <p className="text-sm text-muted-foreground">{formattedDate}, 9:00 AM - 5:00 PM</p>
+                      <div className="flex gap-2">
+                        <Link to="/approvals" className="block p-1.5 bg-green-100 rounded text-green-700 hover:bg-green-200 transition-colors">
+                          <CheckSquare className="h-4 w-4" />
+                        </Link>
+                        <Link to="/approvals" className="block p-1.5 bg-red-100 rounded text-red-700 hover:bg-red-200 transition-colors">
+                          <X className="h-4 w-4" />
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button className="p-1.5 bg-green-100 rounded text-green-700 hover:bg-green-200 transition-colors">
-                        <CheckSquare className="h-4 w-4" />
-                      </button>
-                      <button className="p-1.5 bg-red-100 rounded text-red-700 hover:bg-red-200 transition-colors">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              <Link to="/approvals" className="block text-sm text-primary font-medium mt-2 hover:underline">
-                View all pending approvals →
-              </Link>
+                  ))}
+                  <Link to="/approvals" className="block text-sm text-primary font-medium mt-2 hover:underline">
+                    View all pending approvals →
+                  </Link>
+                </>
+              ) : (
+                <div className="py-4 text-center text-muted-foreground">No pending approvals</div>
+              )}
             </div>
           </CardContent>
         </Card>
