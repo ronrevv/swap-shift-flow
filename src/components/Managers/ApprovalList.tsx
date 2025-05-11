@@ -6,55 +6,12 @@ import SwapCard from '../Swaps/SwapCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
-import { parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeftRight } from 'lucide-react';
-
-// Reuse the swap request mock data function from OpenSwapsList
-// but filter for only the pending ones
-const getManagerPendingSwaps = (): SwapRequest[] => {
-  const users = [
-    { id: '1', name: 'John Manager' },
-    { id: '2', name: 'Jane Staff' },
-    { id: '3', name: 'Bob Staff' },
-  ];
-  
-  const swapRequests: SwapRequest[] = [];
-  
-  const today = new Date();
-  
-  // Generate pending requests
-  for (let i = 0; i < 4; i++) {
-    const user = (i + 1) % 3;
-    const volunteerUser = (i + 2) % 3;
-    const date = new Date();
-    date.setDate(today.getDate() + (i + 1));
-    
-    swapRequests.push({
-      id: `swap-pending-manager-${i}`,
-      shiftId: `shift-${i + 3}`,
-      requesterId: users[user].id,
-      requesterName: users[user].name,
-      note: i % 2 === 0 ? "Personal appointment." : "Family emergency.",
-      date: date.toISOString().split('T')[0],
-      startTime: '10:00 AM',
-      endTime: '6:00 PM',
-      status: 'Pending',
-      createdAt: new Date(today.getTime() - ((i + 1) * 24 * 60 * 60 * 1000)).toISOString(),
-      volunteerId: users[volunteerUser].id,
-      volunteerName: users[volunteerUser].name,
-      volunteerShiftId: `shift-v-${i}`,
-      volunteerShiftDate: new Date(date.getTime() + ((i + 1) * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-      volunteerShiftStartTime: '9:00 AM',
-      volunteerShiftEndTime: '5:00 PM',
-    });
-  }
-  
-  // Sort by date
-  return swapRequests.sort((a, b) => {
-    return parseISO(a.date).getTime() - parseISO(b.date).getTime();
-  });
-};
+import { ArrowLeftRight, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { getPendingSwapRequests, approveSwapRequest, rejectSwapRequest } from '@/api/swapApi';
+import { createLogEntry } from '@/api/logsApi';
 
 interface ApprovalDialogProps {
   swap: SwapRequest;
@@ -158,9 +115,6 @@ const RejectionDialog: React.FC<RejectionDialogProps> = ({ swap, isOpen, onClose
     }
     
     setIsSubmitting(true);
-    // Mock API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
     onReject(reason);
   };
   
@@ -231,11 +185,18 @@ const RejectionDialog: React.FC<RejectionDialogProps> = ({ swap, isOpen, onClose
 };
 
 const ApprovalList: React.FC = () => {
-  const [pendingSwaps, setPendingSwaps] = useState<SwapRequest[]>(getManagerPendingSwaps());
-  const [completedSwaps, setCompletedSwaps] = useState<SwapRequest[]>([]);
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  
+  // Fetch pending swap requests
+  const { data: pendingSwaps, isLoading, error, refetch } = useQuery({
+    queryKey: ['pendingSwaps'],
+    queryFn: getPendingSwapRequests
+  });
+  
+  // Use a separate state for completed swaps
+  const [completedSwaps, setCompletedSwaps] = useState<SwapRequest[]>([]);
   
   const handleApprove = (swap: SwapRequest) => {
     setSelectedSwap(swap);
@@ -247,48 +208,97 @@ const ApprovalList: React.FC = () => {
     setShowRejectionDialog(true);
   };
   
-  const confirmApprove = () => {
+  const confirmApprove = async () => {
     if (!selectedSwap) return;
     
-    // Update the swap status
-    const updatedSwap: SwapRequest = {
-      ...selectedSwap,
-      status: 'Approved',
-      approvedAt: new Date().toISOString(),
-      managerId: '1', // Hardcoded for demo
-      managerName: 'John Manager',
-    };
-    
-    // Remove from pending and add to completed
-    setPendingSwaps(pendingSwaps.filter(swap => swap.id !== selectedSwap.id));
-    setCompletedSwaps([updatedSwap, ...completedSwaps]);
-    
-    toast.success('Shift swap approved successfully!');
-    setShowApprovalDialog(false);
-    setSelectedSwap(null);
+    try {
+      await approveSwapRequest(selectedSwap.id);
+      
+      // Log the approval
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: selectedSwap.id,
+        action: 'approved',
+        details: {
+          swapId: selectedSwap.id,
+          requester: selectedSwap.requesterName,
+          volunteer: selectedSwap.volunteerName
+        }
+      });
+      
+      // Update the completed swaps list
+      setCompletedSwaps(prev => [{
+        ...selectedSwap,
+        status: 'Approved',
+        approvedAt: new Date().toISOString()
+      }, ...prev]);
+      
+      toast.success('Shift swap approved successfully!');
+      refetch();
+    } catch (error) {
+      console.error('Error approving swap request:', error);
+      toast.error('Failed to approve swap request. Please try again.');
+    } finally {
+      setShowApprovalDialog(false);
+      setSelectedSwap(null);
+    }
   };
   
-  const confirmReject = (reason: string) => {
+  const confirmReject = async (reason: string) => {
     if (!selectedSwap) return;
     
-    // Update the swap status
-    const updatedSwap: SwapRequest = {
-      ...selectedSwap,
-      status: 'Rejected',
-      rejectedAt: new Date().toISOString(),
-      managerId: '1', // Hardcoded for demo
-      managerName: 'John Manager',
-      reason,
-    };
-    
-    // Remove from pending and add to completed
-    setPendingSwaps(pendingSwaps.filter(swap => swap.id !== selectedSwap.id));
-    setCompletedSwaps([updatedSwap, ...completedSwaps]);
-    
-    toast.success('Shift swap rejected with reason.');
-    setShowRejectionDialog(false);
-    setSelectedSwap(null);
+    try {
+      await rejectSwapRequest(selectedSwap.id, reason);
+      
+      // Log the rejection
+      await createLogEntry({
+        entityType: 'swap_request',
+        entityId: selectedSwap.id,
+        action: 'rejected',
+        details: {
+          swapId: selectedSwap.id,
+          reason,
+          requester: selectedSwap.requesterName,
+          volunteer: selectedSwap.volunteerName
+        }
+      });
+      
+      // Update the completed swaps list
+      setCompletedSwaps(prev => [{
+        ...selectedSwap,
+        status: 'Rejected',
+        rejectedAt: new Date().toISOString(),
+        reason
+      }, ...prev]);
+      
+      toast.success('Shift swap rejected with reason.');
+      refetch();
+    } catch (error) {
+      console.error('Error rejecting swap request:', error);
+      toast.error('Failed to reject swap request. Please try again.');
+    } finally {
+      setShowRejectionDialog(false);
+      setSelectedSwap(null);
+    }
   };
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading approval requests...</span>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-500 rounded-md">
+        <p>There was an error loading the approval requests. Please try again.</p>
+        <p className="text-sm text-red-400">{String(error)}</p>
+      </div>
+    );
+  }
   
   return (
     <div>
@@ -301,7 +311,7 @@ const ApprovalList: React.FC = () => {
         </TabsList>
         
         <TabsContent value="pending" className="mt-4">
-          {pendingSwaps.length === 0 ? (
+          {!pendingSwaps || pendingSwaps.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="rounded-full bg-muted p-3 mb-3">
                 <ArrowLeftRight className="h-6 w-6 text-muted-foreground" />
@@ -320,6 +330,7 @@ const ApprovalList: React.FC = () => {
                   onApprove={() => handleApprove(swap)}
                   onReject={() => handleReject(swap)}
                   isManagerView={true}
+                  refetch={refetch}
                 />
               ))}
             </div>

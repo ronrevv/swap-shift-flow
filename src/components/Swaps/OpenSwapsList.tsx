@@ -1,176 +1,108 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SwapRequest } from '@/types';
+import { SwapRequest, Shift } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SwapCard from './SwapCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
-import { parseISO } from 'date-fns';
-import { ArrowLeftRight } from 'lucide-react';
-
-// Mock swap requests data
-const generateMockSwapRequests = (): SwapRequest[] => {
-  const users = [
-    { id: '1', name: 'John Manager' },
-    { id: '2', name: 'Jane Staff' },
-    { id: '3', name: 'Bob Staff' },
-  ];
-  
-  const swapRequests: SwapRequest[] = [];
-  
-  // Generate different swap requests with different statuses
-  const today = new Date();
-  
-  // Open requests
-  for (let i = 0; i < 3; i++) {
-    const user = i % 3;
-    const date = new Date();
-    date.setDate(today.getDate() + (i + 1));
-    
-    swapRequests.push({
-      id: `swap-open-${i}`,
-      shiftId: `shift-${i}`,
-      requesterId: users[user].id,
-      requesterName: users[user].name,
-      note: i % 2 === 0 ? "I have a doctor's appointment this day." : undefined,
-      date: date.toISOString().split('T')[0],
-      startTime: '9:00 AM',
-      endTime: '5:00 PM',
-      status: 'Open',
-      createdAt: new Date(today.getTime() - (i * 24 * 60 * 60 * 1000)).toISOString(),
-    });
-  }
-  
-  // Pending requests
-  for (let i = 0; i < 2; i++) {
-    const user = i % 3;
-    const volunteerUser = (i + 1) % 3;
-    const date = new Date();
-    date.setDate(today.getDate() + (i + 4));
-    
-    swapRequests.push({
-      id: `swap-pending-${i}`,
-      shiftId: `shift-${i + 3}`,
-      requesterId: users[user].id,
-      requesterName: users[user].name,
-      note: "Need to attend a family event.",
-      date: date.toISOString().split('T')[0],
-      startTime: '10:00 AM',
-      endTime: '6:00 PM',
-      status: 'Pending',
-      createdAt: new Date(today.getTime() - ((i + 3) * 24 * 60 * 60 * 1000)).toISOString(),
-      volunteerId: users[volunteerUser].id,
-      volunteerName: users[volunteerUser].name,
-      volunteerShiftId: `shift-v-${i}`,
-      volunteerShiftDate: new Date(date.getTime() + (24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-      volunteerShiftStartTime: '9:00 AM',
-      volunteerShiftEndTime: '5:00 PM',
-    });
-  }
-  
-  // Approved requests
-  for (let i = 0; i < 2; i++) {
-    const user = i % 3;
-    const volunteerUser = (i + 1) % 3;
-    const date = new Date();
-    date.setDate(today.getDate() + (i + 6));
-    
-    swapRequests.push({
-      id: `swap-approved-${i}`,
-      shiftId: `shift-${i + 5}`,
-      requesterId: users[user].id,
-      requesterName: users[user].name,
-      date: date.toISOString().split('T')[0],
-      startTime: '8:00 AM',
-      endTime: '4:00 PM',
-      status: 'Approved',
-      createdAt: new Date(today.getTime() - ((i + 5) * 24 * 60 * 60 * 1000)).toISOString(),
-      volunteerId: users[volunteerUser].id,
-      volunteerName: users[volunteerUser].name,
-      volunteerShiftId: `shift-v-${i + 2}`,
-      volunteerShiftDate: new Date(date.getTime() + (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-      volunteerShiftStartTime: '10:00 AM',
-      volunteerShiftEndTime: '6:00 PM',
-      managerId: users[0].id,
-      managerName: users[0].name,
-      approvedAt: new Date(today.getTime() - (24 * 60 * 60 * 1000)).toISOString(),
-    });
-  }
-  
-  // Rejected requests
-  for (let i = 0; i < 1; i++) {
-    const user = i % 3;
-    const volunteerUser = (i + 1) % 3;
-    const date = new Date();
-    date.setDate(today.getDate() - (i + 1));
-    
-    swapRequests.push({
-      id: `swap-rejected-${i}`,
-      shiftId: `shift-${i + 7}`,
-      requesterId: users[user].id,
-      requesterName: users[user].name,
-      date: date.toISOString().split('T')[0],
-      startTime: '11:00 AM',
-      endTime: '7:00 PM',
-      status: 'Rejected',
-      createdAt: new Date(today.getTime() - ((i + 7) * 24 * 60 * 60 * 1000)).toISOString(),
-      volunteerId: users[volunteerUser].id,
-      volunteerName: users[volunteerUser].name,
-      volunteerShiftId: `shift-v-${i + 4}`,
-      volunteerShiftDate: new Date(date.getTime() - (24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-      volunteerShiftStartTime: '9:00 AM',
-      volunteerShiftEndTime: '5:00 PM',
-      managerId: users[0].id,
-      managerName: users[0].name,
-      rejectedAt: new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString(),
-      reason: "Insufficient staffing for the requested day.",
-    });
-  }
-  
-  // Sort by date
-  return swapRequests.sort((a, b) => {
-    return parseISO(b.createdAt).getTime() - parseISO(a.createdAt).getTime();
-  });
-};
+import { format, parseISO } from 'date-fns';
+import { ArrowLeftRight, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { getOpenSwapRequests, getUserSwapHistory, volunteerForSwap } from '@/api/swapApi';
+import { getUserShifts } from '@/api/shiftsApi';
 
 const OpenSwapsList: React.FC = () => {
   const { user } = useAuth();
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
+  const [selectedVolunteerShift, setSelectedVolunteerShift] = useState<Shift | null>(null);
   const [showVolunteerDialog, setShowVolunteerDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Generate mock swap requests
-  const swapRequests = React.useMemo(() => generateMockSwapRequests(), []);
+  // Fetch open swap requests
+  const { data: openSwapRequests, isLoading: isLoadingSwaps, error: swapsError, refetch: refetchSwaps } = useQuery({
+    queryKey: ['openSwaps'],
+    queryFn: getOpenSwapRequests,
+  });
+  
+  // Fetch user's swap history
+  const { data: swapHistory, isLoading: isLoadingHistory, error: historyError, refetch: refetchHistory } = useQuery({
+    queryKey: ['swapHistory', user?.id],
+    queryFn: getUserSwapHistory,
+    enabled: !!user
+  });
+  
+  // Fetch user's shifts for volunteering
+  const { data: userShifts, isLoading: isLoadingShifts } = useQuery({
+    queryKey: ['shifts', user?.id],
+    queryFn: getUserShifts,
+    enabled: !!user
+  });
   
   // Filter swap requests based on user's involvement
-  const myRequests = swapRequests.filter(swap => swap.requesterId === user?.id);
-  const myVolunteers = swapRequests.filter(swap => swap.volunteerId === user?.id);
-  const availableSwaps = swapRequests.filter(swap => 
+  const myRequests = swapHistory?.filter(swap => swap.requesterId === user?.id) || [];
+  const myVolunteers = swapHistory?.filter(swap => swap.volunteerId === user?.id) || [];
+  const availableSwaps = openSwapRequests?.filter(swap => 
     swap.status === 'Open' && swap.requesterId !== user?.id
-  );
-  
+  ) || [];
+
   const handleVolunteer = (swap: SwapRequest) => {
     setSelectedSwap(swap);
     setShowVolunteerDialog(true);
   };
   
+  const selectVolunteerShift = (shift: Shift) => {
+    setSelectedVolunteerShift(shift);
+  };
+  
   const confirmVolunteer = async () => {
-    if (!selectedSwap || !user) return;
+    if (!selectedSwap || !selectedVolunteerShift || !user) {
+      toast.error("Please select a shift to volunteer with");
+      return;
+    }
     
     setIsSubmitting(true);
-    // Mock API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // In a real app, we'd send this to an API
-    console.log(`User ${user.name} volunteered for shift ${selectedSwap.id}`);
-    
-    toast.success("You've successfully volunteered for this shift! Awaiting manager approval.");
-    
-    setIsSubmitting(false);
-    setShowVolunteerDialog(false);
-    setSelectedSwap(null);
+    try {
+      await volunteerForSwap(selectedSwap.id, selectedVolunteerShift.id);
+      
+      toast.success("You've successfully volunteered for this shift! Awaiting manager approval.");
+      
+      // Refetch data
+      refetchSwaps();
+      refetchHistory();
+    } catch (error) {
+      console.error('Error volunteering for swap:', error);
+      toast.error("There was a problem volunteering for this shift. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+      setShowVolunteerDialog(false);
+      setSelectedSwap(null);
+      setSelectedVolunteerShift(null);
+    }
   };
+  
+  const isLoading = isLoadingSwaps || isLoadingHistory;
+  const error = swapsError || historyError;
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading swap requests...</span>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-500 rounded-md">
+        <p>There was an error loading the swap requests. Please try again.</p>
+        <p className="text-sm text-red-400">{String(error)}</p>
+      </div>
+    );
+  }
   
   return (
     <div>
@@ -199,6 +131,7 @@ const OpenSwapsList: React.FC = () => {
                   key={swap.id}
                   swap={swap}
                   onVolunteer={() => handleVolunteer(swap)}
+                  refetch={refetchSwaps}
                 />
               ))}
             </div>
@@ -222,6 +155,7 @@ const OpenSwapsList: React.FC = () => {
                 <SwapCard
                   key={swap.id}
                   swap={swap}
+                  refetch={refetchHistory}
                 />
               ))}
             </div>
@@ -245,6 +179,7 @@ const OpenSwapsList: React.FC = () => {
                 <SwapCard
                   key={swap.id}
                   swap={swap}
+                  refetch={refetchHistory}
                 />
               ))}
             </div>
@@ -253,18 +188,18 @@ const OpenSwapsList: React.FC = () => {
       </Tabs>
       
       <Dialog open={showVolunteerDialog} onOpenChange={setShowVolunteerDialog}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Volunteer for Shift</DialogTitle>
             <DialogDescription>
-              Are you sure you want to volunteer for this shift? Once approved by a manager, you will be responsible for working this shift.
+              Select one of your shifts to swap with the requested shift. Once approved by a manager, you will be responsible for working this shift.
             </DialogDescription>
           </DialogHeader>
           
           {selectedSwap && (
             <div className="py-4">
               <div className="rounded-md border p-4 mb-4">
-                <div className="font-medium">Shift Details:</div>
+                <div className="font-medium">Requested Shift:</div>
                 <div className="text-sm mt-1">
                   <p><span className="font-medium">Date:</span> {selectedSwap.date}</p>
                   <p><span className="font-medium">Time:</span> {selectedSwap.startTime} - {selectedSwap.endTime}</p>
@@ -274,6 +209,37 @@ const OpenSwapsList: React.FC = () => {
                   )}
                 </div>
               </div>
+              
+              <div className="mt-4">
+                <div className="font-medium mb-2">Select Your Shift to Offer:</div>
+                {isLoadingShifts ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span>Loading your shifts...</span>
+                  </div>
+                ) : userShifts && userShifts.length > 0 ? (
+                  <div className="grid gap-2 max-h-[300px] overflow-y-auto p-1">
+                    {userShifts.map(shift => (
+                      <div 
+                        key={shift.id} 
+                        className={`rounded border p-3 cursor-pointer transition-colors ${
+                          selectedVolunteerShift?.id === shift.id 
+                            ? 'bg-primary/10 border-primary' 
+                            : 'hover:bg-accent'
+                        }`}
+                        onClick={() => selectVolunteerShift(shift)}
+                      >
+                        <p className="font-medium">{format(parseISO(shift.date), 'EEE, MMM d, yyyy')}</p>
+                        <p className="text-sm text-muted-foreground">{shift.startTime} - {shift.endTime}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    You don't have any shifts available to volunteer.
+                  </div>
+                )}
+              </div>
             </div>
           )}
           
@@ -281,7 +247,10 @@ const OpenSwapsList: React.FC = () => {
             <Button variant="ghost" onClick={() => setShowVolunteerDialog(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={confirmVolunteer} disabled={isSubmitting}>
+            <Button 
+              onClick={confirmVolunteer} 
+              disabled={isSubmitting || !selectedVolunteerShift}
+            >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 border-t-2 border-b-2 border-white rounded-full animate-spin"></span>
