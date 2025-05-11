@@ -1,4 +1,3 @@
-
 export type UserRole = 'Staff' | 'Manager';
 
 export interface User {
@@ -47,10 +46,11 @@ export interface SwapRequest {
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<any>;
-  logout: () => void;
-  register?: (email: string, password: string, name: string) => Promise<any>;
+  logout: () => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<any>;
   isAuthenticated: boolean;
   isLoading: boolean;
+  initialLoadComplete: boolean;
 }
 
 export interface ActivityLog {

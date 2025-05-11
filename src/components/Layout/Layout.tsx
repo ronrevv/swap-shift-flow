@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import Header from './Header';
@@ -12,10 +12,19 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, initialLoadComplete } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  if (isLoading) {
+  // Effect to handle authentication redirects
+  useEffect(() => {
+    if (initialLoadComplete && !isLoading && !isAuthenticated) {
+      console.log("Layout: Not authenticated after load complete, redirecting to login");
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, initialLoadComplete, navigate]);
+
+  if (isLoading || !initialLoadComplete) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -24,9 +33,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    console.log("Layout: Not authenticated, redirecting to login");
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
+  console.log("Layout: Authenticated, rendering dashboard");
   return (
     <SidebarProvider>
       <div className="min-h-screen flex flex-col w-full">

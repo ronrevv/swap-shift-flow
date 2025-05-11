@@ -13,7 +13,14 @@ import Approvals from "./pages/Approvals";
 import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

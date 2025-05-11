@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const Index = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, initialLoadComplete } = useAuth();
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedError, setSeedError] = useState('');
   const navigate = useNavigate();
@@ -20,13 +20,14 @@ const Index = () => {
     document.title = "ShiftSwap - Login";
     
     // If authenticated, redirect to dashboard
-    if (isAuthenticated && !isLoading) {
-      navigate('/dashboard');
+    if (isAuthenticated && initialLoadComplete) {
+      console.log("Index: User is authenticated, redirecting to dashboard");
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, initialLoadComplete, navigate]);
   
   // Early return during authentication check to prevent flash of login screen
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && !initialLoadComplete)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -36,6 +37,7 @@ const Index = () => {
   
   // If logged in, redirect to dashboard
   if (isAuthenticated) {
+    console.log("Index: User is authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
   
